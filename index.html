@@ -3,298 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Star Drift: Periodic Odyssey</title>
+    <title>Star Drift: Deep Space Pro</title>
     <style>
-        :root { --neon: #00f2ff; --warn: #ff3366; --bg: #030508; }
+        :root { --neon: #00f2ff; --warn: #ff3366; --gold: #ffd700; --bg: #020406; }
         body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; touch-action: none; }
-        canvas { display: block; touch-action: none; }
-
-        /* HUD & Panels */
+        canvas { display: block; }
         .hud { position: fixed; top: 10px; left: 10px; right: 10px; pointer-events: none; display: flex; justify-content: space-between; z-index: 10; }
-        .panel { background: rgba(0,15,30,0.85); padding: 10px; border: 1px solid var(--neon); border-radius: 2px; font-size: 11px; box-shadow: 0 0 10px rgba(0,242,255,0.2); }
-        .fuel-bar { width: 100px; height: 6px; background: #222; border: 1px solid var(--neon); margin-top: 4px; position: relative; }
-        #fuel-inner { width: 100%; height: 100%; background: var(--neon); transition: width 0.3s; }
-
-        /* Mobile Controls */
-        .controls { position: fixed; bottom: 30px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .stick { width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--neon); position: relative; touch-action: none; }
-        .nub { width: 40px; height: 40px; border-radius: 50%; background: var(--neon); position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 15px var(--neon); pointer-events: none; }
-        .btn-group { display: flex; gap: 15px; }
-        .btn { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid rgba(255,255,255,0.2); color: #fff; touch-action: none; }
-        #fireBtn { background: var(--warn); }
-        #warpBtn { background: #9d33ff; }
-
-        /* Overlays */
-        .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,5,10,0.95); z-index: 100; backdrop-filter: blur(10px); }
+        .panel { background: rgba(0,10,20,0.9); padding: 12px; border: 1px solid var(--neon); border-radius: 4px; font-size: 11px; box-shadow: 0 0 15px rgba(0,242,255,0.1); }
+        .bar { width: 120px; height: 8px; background: #111; border: 1px solid var(--neon); margin-top: 4px; overflow: hidden; }
+        #fuel-bar { width: 100%; height: 100%; background: var(--neon); transition: 0.2s; }
+        #hp-bar { width: 100%; height: 100%; background: var(--warn); transition: 0.2s; }
+        
+        .controls { position: fixed; bottom: 30px; left: 20px; right: 20px; display: flex; justify-content: space-between; }
+        .stick { width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid var(--neon); position: relative; }
+        .nub { width: 40px; height: 40px; border-radius: 50%; background: var(--neon); position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+        .btn { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background: var(--warn); color: #fff; border: 2px solid rgba(255,255,255,0.2); }
+        
+        .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; backdrop-filter: blur(10px); }
         .active { display: flex; }
-        .card { background: #0a0f1e; padding: 25px; border: 2px solid var(--neon); width: 320px; max-height: 80vh; overflow-y: auto; text-align: center; pointer-events: auto; }
-        .craft-item { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding: 8px; background: rgba(0,242,255,0.05); border: 1px solid var(--neon); font-size: 10px; }
-        button { background: var(--neon); color: #000; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 4px; }
-        button:disabled { background: #333; color: #777; }
+        .card { background: #0a0f1e; padding: 25px; border: 2px solid var(--neon); width: 320px; text-align: center; }
+        .msg { font-size: 10px; color: #888; margin-bottom: 10px; }
+        button { background: var(--neon); color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px; width: 100%; margin: 5px 0; }
     </style>
 </head>
 <body>
 
 <div id="menu" class="overlay active">
     <div class="card">
-        <h1 style="text-shadow: 0 0 15px var(--neon)">STAR DRIFT</h1>
-        <p style="font-size: 12px; color: #aaa;">DEEP SPACE EXPLORATION SIMULATOR</p>
-        <button onclick="startMission()" style="margin-top: 20px; font-size: 18px;">INITIATE DRIVE</button>
-        <p style="font-size: 10px; margin-top: 20px;">LEFT STICK: THRUST | RIGHT BTNS: COMBAT/WARP</p>
+        <h1 style="margin:0; color:var(--neon)">STAR DRIFT</h1>
+        <p class="msg">THE FURTHER YOU GO, THE RICHER THE REWARD.</p>
+        <button onclick="start()">INITIATE DEEP DIVE</button>
     </div>
 </div>
 
 <div id="baseUI" class="overlay">
     <div class="card">
-        <h2 style="margin-top:0">REFINERY BAY</h2>
-        <div id="vault-list" style="font-size: 10px; color: #888; margin-bottom: 15px; min-height: 40px;">Vault: Empty</div>
-        <button onclick="deposit()" style="width:100%; margin-bottom: 20px;">OFFLOAD & REFUEL</button>
-        
-        <div class="craft-item"><span>Titanium Plating (+HP)</span><button onclick="craft('hp')">5 Ti</button></div>
-        <div class="craft-item"><span>Tungsten Rails (+DMG)</span><button onclick="craft('dmg')">5 W</button></div>
-        <div class="craft-item"><span>Hydrogen Tank (+Max Fuel)</span><button onclick="craft('fuel')">10 H</button></div>
-        <div class="craft-item"><span>Lead Shielding (+Anti-Rad)</span><button onclick="craft('shield')">5 Pb</button></div>
-        
-        <button onclick="closeUI()" style="margin-top:20px; background: var(--warn); color: #fff;">LAUNCH</button>
+        <h2 id="bTitle" style="color:var(--neon)">MOTHERSHIP</h2>
+        <div id="v-info" style="font-size:10px; margin-bottom:10px;">Vault: Empty</div>
+        <button onclick="deposit()">SELL ALL CARGO & REFUEL</button>
+        <button onclick="upgrade('hull')">REINFORCE HULL (10 Iron + 20c)</button>
+        <button onclick="upgrade('cargo')">EXPAND HOLD (10 Tungsten + 30c)</button>
+        <button onclick="upgrade('wep')">RAILGUN TECH (5 Uranium + 50c)</button>
+        <button onclick="closeUI()" style="background:var(--warn); color:#fff">LAUNCH</button>
     </div>
 </div>
 
 <div class="hud" id="hud" style="display:none">
     <div class="panel">
-        HULL: <span id="hp-val">100</span> | DEF: <span id="def-val">0</span><br>
-        CARGO: <span id="cg-val">0</span>/<span id="mc-val">50</span>kg<br>
-        FUEL: <div class="fuel-bar"><div id="fuel-inner"></div></div>
+        HULL <div class="bar"><div id="hp-bar"></div></div>
+        FUEL <div class="bar"><div id="fuel-bar"></div></div>
+        DEPTH: <span id="depth">0</span> km
     </div>
     <div class="panel" style="text-align:right">
-        WAVE: <span id="wv-val">1</span><br>
-        <span id="hold-list" style="color: #00f2ff; font-size: 9px;">Empty</span>
+        CREDITS: <span id="cr">0</span><br>
+        CARGO: <span id="cg">0</span>/<span id="mc">50</span><br>
+        <span id="hold" style="color:var(--gold); font-size:9px;"></span>
     </div>
 </div>
 
 <div class="controls" id="ctrls" style="display:none">
     <div class="stick" id="stk"><div class="nub" id="nub"></div></div>
-    <div class="btn-group">
-        <div class="btn" id="warpBtn">WARP</div>
-        <div class="btn" id="fireBtn">FIRE</div>
-    </div>
+    <div class="btn" id="fir">FIRE</div>
 </div>
 
 <canvas id="cvs"></canvas>
 
 <script>
-const cvs = document.getElementById("cvs"), ctx = cvs.getContext("2d");
-let W, H, lastTime = 0, gameActive = false;
-const PERIODIC = {
-    H:  {n:"Hydrogen", w:0.1, c:"#ffffff", t:"Gas"},
-    He: {n:"Helium", w:0.2, c:"#ffeb3b", t:"Gas"},
-    Ti: {n:"Titanium", w:4.5, c:"#90a4ae", t:"Solid"},
-    W:  {n:"Tungsten", w:19.3, c:"#37474f", t:"Solid"},
-    Pb: {n:"Lead", w:11.3, c:"#455a64", t:"Solid"},
-    U:  {n:"Uranium", w:18.9, c:"#4caf50", t:"Radioactive"},
-    Pu: {n:"Plutonium", w:19.8, c:"#2e7d32", t:"Radioactive"},
-    Hg: {n:"Mercury", w:13.5, c:"#e0e0e0", t:"Liquid"}
+const cvs=document.getElementById("cvs"), ctx=cvs.getContext("2d");
+let W, H, last, active=false;
+
+const ORES = {
+    H:  {n:"Hydrogen", w:0.1, v:2,  d:0},
+    Fe: {n:"Iron",     w:1.0, v:5,  d:0},
+    W:  {n:"Tungsten", w:3.0, v:15, d:2000},
+    Au: {n:"Gold",     w:2.0, v:50, d:4000},
+    U:  {n:"Uranium",  w:5.0, v:80, d:6000},
+    AM: {n:"Antimatter",w:0.1,v:500,d:9000}
 };
 
-const ship = {
-    x:0, y:0, vx:0, vy:0, angle:0,
-    hp:100, mhp:100, def:0, shield:0,
-    fuel:100, mfuel:100,
-    cargo:{}, mass:0, maxMass:50, vault:{},
-    dmg:10, speedBase:700, warpCool:0, inUI:false
+const ship = { 
+    x:0, y:0, vx:0, vy:0, a:0, hp:100, mhp:100, 
+    fuel:100, mfuel:100, cr:0, mass:0, max:50, 
+    inv:{}, vault:{}, wep:'pulse', speed:600 
 };
 
-const ents = { planets:[], asteroids:[], bullets:[], aliens:[] };
-const worldSize = 12000;
-let joyX=0, joyY=0, isFiring=false;
+const ents = { pla:[], ast:[], bul:[], art:[] };
+const world = 20000;
 
-function resize(){ W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
-window.addEventListener("resize", resize); resize();
+function resize(){ W=cvs.width=innerWidth; H=cvs.height=innerHeight; }
+addEventListener("resize", resize); resize();
 
-function startMission() {
-    document.getElementById("menu").style.display = "none";
-    document.getElementById("hud").style.display = "flex";
-    document.getElementById("ctrls").style.display = "flex";
-    gameActive = true;
-    initWorld();
-    requestAnimationFrame(gameLoop);
+function start(){
+    document.getElementById("menu").style.display="none";
+    document.getElementById("hud").style.display="flex";
+    document.getElementById("ctrls").style.display="flex";
+    active=true; init(); requestAnimationFrame(loop);
 }
 
-function initWorld() {
-    ents.planets.push({x:0, y:0, r:150, base:true, n:"MOTHERSHIP"});
-    const keys = Object.keys(PERIODIC);
-    for(let i=0; i<30; i++) {
-        const res = [keys[Math.floor(Math.random()*keys.length)], keys[Math.floor(Math.random()*keys.length)]];
-        ents.planets.push({
-            x: (Math.random()-0.5)*worldSize, y: (Math.random()-0.5)*worldSize,
-            r: 60+Math.random()*80, c: `hsl(${Math.random()*360}, 40%, 20%)`,
-            res: [...new Set(res)], prog:0, n: "Sector-"+(i+1)
+function init(){
+    ents.pla.push({x:0, y:0, r:180, home:true, n:"MOTHERSHIP"});
+    for(let i=0; i<40; i++){
+        const dist = 500 + Math.random()*(world/2);
+        const ang = Math.random()*Math.PI*2;
+        // Logic: Further planets have rarer ores
+        const possible = Object.keys(ORES).filter(k => ORES[k].d <= dist);
+        ents.pla.push({
+            x: Math.cos(ang)*dist, y: Math.sin(ang)*dist,
+            r: 50+Math.random()*70, c:`hsl(${dist/50}, 40%, 25%)`,
+            res: possible[possible.length-1], prog:0
         });
     }
 }
 
-// JOSTICK & INPUT
-const stk = document.getElementById("stk"), nub = document.getElementById("nub");
-stk.addEventListener("pointerdown", e => { stk.setPointerCapture(e.pointerId); handleJoy(e); });
-stk.addEventListener("pointermove", e => { if(stk.hasPointerCapture(e.pointerId)) handleJoy(e); });
-stk.addEventListener("pointerup", () => { joyX=0; joyY=0; nub.style.left="50%"; nub.style.top="50%"; });
-
-function handleJoy(e) {
-    const r = stk.getBoundingClientRect(), dx = e.clientX-(r.left+r.width/2), dy = e.clientY-(r.top+r.height/2);
-    const d = Math.hypot(dx,dy), m = r.width/2;
-    joyX = (d>m ? dx*m/d : dx)/m; joyY = (d>m ? dy*m/d : dy)/m;
-    nub.style.left = (50+joyX*50)+"%"; nub.style.top = (50+joyY*50)+"%";
+// Controls
+const stk=document.getElementById("stk"), nub=document.getElementById("nub");
+stk.addEventListener("pointerdown", e=>{stk.setPointerCapture(e.pointerId); move(e)});
+stk.addEventListener("pointermove", e=>{if(stk.hasPointerCapture(e.pointerId)) move(e)});
+stk.addEventListener("pointerup", ()=>{joyX=0; joyY=0; nub.style.left="50%"; nub.style.top="50%"});
+let joyX=0, joyY=0, fir=false;
+function move(e){
+    const r=stk.getBoundingClientRect(), dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
+    const d=Math.hypot(dx,dy), m=r.width/2;
+    joyX=(d>m?dx*m/d:dx)/m; joyY=(d>m?dy*m/d:dy)/m;
+    nub.style.left=(50+joyX*50)+"%"; nub.style.top=(50+joyY*50)+"%";
 }
+document.getElementById("fir").onpointerdown=()=>fir=true;
+document.getElementById("fir").onpointerup=()=>fir=false;
 
-document.getElementById("fireBtn").onpointerdown = () => isFiring = true;
-document.getElementById("fireBtn").onpointerup = () => isFiring = false;
-document.getElementById("warpBtn").onclick = () => {
-    if(ship.fuel > 20 && ship.warpCool <= 0) {
-        ship.vx *= 5; ship.vy *= 5; ship.fuel -= 20; ship.warpCool = 5;
-    }
-};
-
-// UI & REFINERY
-function openUI() { ship.inUI = true; updateVaultList(); document.getElementById("baseUI").classList.add("active"); }
-window.closeUI = () => { ship.inUI = false; document.getElementById("baseUI").classList.remove("active"); };
-
-function deposit() {
-    for(let k in ship.cargo) { ship.vault[k] = (ship.vault[k]||0) + ship.cargo[k]; ship.cargo[k]=0; }
-    ship.mass = 0; ship.fuel = ship.mfuel; ship.hp = ship.mhp; updateVaultList();
-}
-
-function updateVaultList() {
-    const v = document.getElementById("vault-list");
-    v.innerText = "Vault Storage: " + Object.entries(ship.vault).filter(x=>x[1]>0).map(([k,n])=>`${k}:${n}`).join(" | ") || "Empty";
-}
-
-function craft(type) {
-    const v = ship.vault;
-    if(type==='hp' && v.Ti >= 5) { ship.mhp += 50; ship.hp = ship.mhp; v.Ti -= 5; }
-    if(type==='dmg' && v.W >= 5) { ship.dmg += 10; v.W -= 5; }
-    if(type==='fuel' && v.H >= 10) { ship.mfuel += 50; ship.fuel = ship.mfuel; v.H -= 10; }
-    if(type==='shield' && v.Pb >= 5) { ship.shield += 5; v.Pb -= 5; }
-    updateVaultList();
-}
-
-// MAIN LOOP
-function gameLoop(now) {
-    const dt = Math.min(0.1, (now - (lastTime || now)) / 1000);
-    lastTime = now;
-    if(!ship.inUI) update(dt);
-    render();
-    requestAnimationFrame(gameLoop);
-}
-
-function update(dt) {
-    // Fuel & Physics
-    const weightFactor = Math.max(0.2, 1 - (ship.mass / ship.maxMass) * 0.8);
-    const movePower = ship.fuel > 0 ? 1 : 0.1;
-    ship.vx += joyX * ship.speedBase * weightFactor * movePower * dt;
-    ship.vx *= 0.95;
-    ship.vy += joyY * ship.speedBase * weightFactor * movePower * dt;
-    ship.vy *= 0.95;
-    ship.x += ship.vx * dt * 60; ship.y += ship.vy * dt * 60;
+function update(dt){
+    if(ship.ui) return;
     
-    if(Math.hypot(ship.vx, ship.vy) > 2) ship.angle = Math.atan2(ship.vy, ship.vx);
-    if(joyX !== 0 || joyY !== 0) ship.fuel -= (0.5 + ship.mass * 0.02) * dt;
+    // Depth Physics: Distance from center
+    const dist = Math.hypot(ship.x, ship.y);
+    const weight = Math.max(0.3, 1-(ship.mass/ship.max));
+    
+    // Movement & Fuel (Motherload style)
+    if(ship.fuel > 0){
+        ship.vx += joyX*ship.speed*weight*dt;
+        ship.vy += joyY*ship.speed*weight*dt;
+        if(joyX||joyY) ship.fuel -= (1 + (dist/2000)) * dt; 
+    } else {
+        // Out of fuel rescue
+        if(ship.mass > 0 || Object.keys(ship.inv).length > 0){
+            ship.inv = {}; ship.mass = 0; // Penalty: Lose cargo
+            ship.x = 0; ship.y = 0; ship.fuel = 20; // Teleport home
+            alert("RESCUE DRONE: Out of fuel! Cargo stripped for payment.");
+        }
+    }
+    
+    ship.vx*=0.96; ship.vy*=0.96;
+    ship.x+=ship.vx*dt; ship.y+=ship.vy*dt;
+    if(Math.hypot(ship.vx, ship.vy)>1) ship.angle = Math.atan2(ship.vy, ship.vx);
 
-    // Radioactive Hazard
-    const rads = (ship.cargo.U || 0) + (ship.cargo.Pu || 0);
-    if(rads > 0) ship.hp -= Math.max(0, rads - ship.shield) * dt * 0.5;
-    if(ship.hp <= 0) location.reload();
+    // Automatic Refining
+    if(ship.inv.H > 5) { ship.inv.H -= 5; ship.fuel = Math.min(ship.mfuel, ship.fuel+15); }
 
-    // Mining & Base
-    let atBase = false;
-    ents.planets.forEach(pl => {
-        const d = Math.hypot(ship.x - pl.x, ship.y - pl.y);
-        if(d < pl.r + 50) {
-            if(pl.base) atBase = true;
-            else if(ship.mass < ship.maxMass && Math.hypot(ship.vx, ship.vy) < 5) {
-                pl.prog += dt * 40;
-                if(pl.prog >= 100) {
-                    const r = pl.res[Math.floor(Math.random()*pl.res.length)];
-                    ship.cargo[r] = (ship.cargo[r]||0) + 1;
-                    ship.mass += PERIODIC[r].w;
-                    pl.prog = 0;
+    // Mining
+    let nearBase = false;
+    ents.pla.forEach(p => {
+        const d = Math.hypot(ship.x-p.x, ship.y-p.y);
+        if(d < p.r+40){
+            if(p.home) nearBase = true;
+            else if(ship.mass < ship.max){
+                p.prog += dt*40;
+                if(p.prog >= 100){
+                    ship.inv[p.res] = (ship.inv[p.res]||0)+1;
+                    ship.mass += ORES[p.res].w;
+                    p.prog = 0;
                 }
             }
         }
     });
-    if(atBase && !ship.inUI) openUI();
-
-    // Shooting
-    if(isFiring && (ship.cool || 0) <= 0) {
-        ents.bullets.push({x:ship.x, y:ship.y, vx:Math.cos(ship.angle)*20, vy:Math.sin(ship.angle)*20, l:60, a:ship.angle});
-        ship.cool = 0.2;
-    }
-    ship.cool -= dt; ship.warpCool -= dt;
-
-    // Entity Logic
-    ents.bullets.forEach((b, i) => {
-        b.x += b.vx; b.y += b.vy; b.l--;
-        if(b.l <= 0) ents.bullets.splice(i, 1);
-        ents.asteroids.forEach((ast, j) => {
-            if(Math.hypot(ast.x - b.x, ast.y - b.y) < ast.r) {
-                ast.hp -= ship.dmg; ents.bullets.splice(i, 1);
-                if(ast.hp <= 0) ents.asteroids.splice(j, 1);
-            }
-        });
-    });
-
-    if(ents.asteroids.length === 0) {
-        const wave = Math.floor(Math.random() * 5) + 5;
-        for(let i=0; i<wave; i++) {
-            const ang = Math.random()*Math.PI*2;
-            ents.asteroids.push({x:ship.x+Math.cos(ang)*1000, y:ship.y+Math.sin(ang)*1000, vx:(Math.random()-0.5)*4, vy:(Math.random()-0.5)*4, r:20+Math.random()*20, hp:30});
-        }
-    }
+    if(nearBase && !ship.ui) openUI();
 
     // HUD Update
-    document.getElementById("hp-val").innerText = Math.round(ship.hp);
-    document.getElementById("cg-val").innerText = Math.round(ship.mass);
-    document.getElementById("mc-val").innerText = ship.maxMass;
-    document.getElementById("fuel-inner").style.width = (ship.fuel/ship.mfuel*100) + "%";
-    document.getElementById("hold-list").innerText = "Hold: " + Object.entries(ship.cargo).filter(x=>x[1]>0).map(([k,v])=>`${k}:${v}`).join(", ") || "Empty";
+    document.getElementById("hp-bar").style.width = (ship.hp/ship.mhp*100)+"%";
+    document.getElementById("fuel-bar").style.width = (ship.fuel/ship.mfuel*100)+"%";
+    document.getElementById("depth").innerText = Math.floor(dist/10);
+    document.getElementById("cr").innerText = ship.cr;
+    document.getElementById("cg").innerText = Math.round(ship.mass);
+    document.getElementById("hold").innerText = Object.entries(ship.inv).filter(x=>x[1]>0).map(x=>x[0]).join(" ");
 }
 
-function render() {
-    ctx.fillStyle = "#030508"; ctx.fillRect(0,0,W,H);
-    const cx = W/2, cy = H/2;
+function openUI(){ ship.ui=true; document.getElementById("baseUI").classList.add("active"); }
+window.closeUI=()=> { ship.ui=false; document.getElementById("baseUI").classList.remove("active"); };
+window.deposit=()=>{
+    for(let k in ship.inv){ ship.cr += ship.inv[k] * ORES[k].v; ship.vault[k]=(ship.vault[k]||0)+ship.inv[k]; ship.inv[k]=0; }
+    ship.mass = 0; ship.fuel = ship.mfuel; ship.hp = ship.mhp;
+};
 
-    ents.planets.forEach(pl => {
-        const dx = cx + pl.x - ship.x, dy = cy + pl.y - ship.y;
-        if(dx + pl.r < 0 || dx - pl.r > W || dy + pl.r < 0 || dy - pl.r > H) return;
-        ctx.fillStyle = pl.base ? "#00f2ff" : pl.c;
-        ctx.beginPath(); ctx.arc(dx, dy, pl.r, 0, Math.PI*2); ctx.fill();
-        if(pl.prog > 0) {
-            ctx.strokeStyle = "white"; ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(dx, dy, pl.r+10, 0, (Math.PI*2)*(pl.prog/100)); ctx.stroke();
-        }
-        ctx.fillStyle = "white"; ctx.font = "10px monospace"; ctx.textAlign = "center";
-        ctx.fillText(pl.n + (pl.res ? ` [${pl.res.join(",")}]` : ""), dx, dy + pl.r + 20);
+function render(){
+    ctx.fillStyle="#020406"; ctx.fillRect(0,0,W,H);
+    const cx=W/2, cy=H/2;
+
+    ents.pla.forEach(p=>{
+        const dx=cx+p.x-ship.x, dy=cy+p.y-ship.y;
+        if(dx<-200||dx>W+200||dy<-200||dy>H+200) return;
+        ctx.fillStyle=p.home?"#00f2ff":p.c; ctx.beginPath(); ctx.arc(dx,dy,p.r,0,Math.PI*2); ctx.fill();
+        if(p.prog > 0){ ctx.strokeStyle="#fff"; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(dx,dy,p.r+8,0,Math.PI*2*(p.prog/100)); ctx.stroke(); }
+        ctx.fillStyle="#fff"; ctx.font="10px Courier"; ctx.textAlign="center";
+        ctx.fillText(p.home?"HOME":p.res, dx, dy+p.r+20);
     });
 
-    ctx.fillStyle = "#333";
-    ents.asteroids.forEach(a => { ctx.beginPath(); ctx.arc(cx+a.x-ship.x, cy+a.y-ship.y, a.r, 0, Math.PI*2); ctx.fill(); });
-    ctx.strokeStyle = "#ff3366";
-    ents.bullets.forEach(b => {
-        ctx.beginPath(); ctx.moveTo(cx+b.x-ship.x, cy+b.y-ship.y);
-        ctx.lineTo(cx+b.x-ship.x-Math.cos(b.a)*15, cy+b.y-ship.y-Math.sin(b.a)*15); ctx.stroke();
-    });
-
+    // Ship
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(ship.angle);
-    ctx.fillStyle = ship.warpCool > 4 ? "#9d33ff" : "white";
-    ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-12, -10); ctx.lineTo(-12, 10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-12,-10); ctx.lineTo(-12,10); ctx.closePath(); ctx.fill();
     ctx.restore();
 
     // Radar
-    ctx.strokeStyle = "rgba(0,242,255,0.2)"; ctx.strokeRect(W-110, 10, 100, 100);
-    const scale = 100/worldSize;
-    ents.planets.forEach(p => {
-        ctx.fillStyle = p.base ? "#00f2ff" : "#444";
-        ctx.fillRect(W-60 + p.x*scale - 1, 60 + p.y*scale - 1, 2, 2);
-    });
+    ctx.strokeStyle="rgba(0,242,255,0.2)"; ctx.strokeRect(W-110, 10, 100, 100);
+    const s = 100/world;
+    ents.pla.forEach(p => { ctx.fillStyle=p.home?"#00f2ff":"#444"; ctx.fillRect(W-60+p.x*s, 60+p.y*s, 2, 2); });
 }
+
+function loop(n){ const dt=Math.min(0.1, (n-(last||n))/1000); last=n; update(dt); render(); requestAnimationFrame(loop); }
 </script>
 </body>
 </html>
