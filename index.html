@@ -1,745 +1,256 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Star Drift: Asteroid Dodge</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Drift (Refactored)</title>
 <style>
-  :root {
-    color-scheme: dark;
-    --bg: #0a0f1e;
-    --fg: #b5c7ff;
-    --hud: rgba(255,255,255,0.08);
-    --accent: #6fa8ff;
-    --danger: #ff6f6f;
-    --ok: #5cffb1;
-  }
-  html, body { margin:0; padding:0; background:var(--bg); height:100%; overflow:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-  #game { display:block; width:100vw; height:100vh; touch-action:none; }
-  .hud {
-    position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center;
-    padding:8px 10px; color:var(--fg); font-size:14px; background:linear-gradient(to bottom, rgba(0,0,0,0.35), transparent);
-    z-index:10;
-  }
-  .hud .pill { background:var(--hud); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:6px 10px; display:inline-flex; gap:10px; align-items:center; }
-  .hud .right { display:flex; align-items:center; gap:8px; }
-  .badge { display:inline-block; padding:2px 6px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); font-size:12px; }
-  .notif {
-    position:fixed; left:50%; transform:translateX(-50%); bottom:16px; color:#fff; background:rgba(0,0,0,0.5);
-    border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:8px 12px; font-size:14px; pointer-events:none; z-index:12; display:none;
-  }
-  .controls {
-    position:fixed; bottom:16px; left:16px; right:16px; display:flex; justify-content:space-between; align-items:center; z-index:11;
-    pointer-events:auto;
-  }
-  .stick {
-    width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.15);
-    position:relative; touch-action:none;
-  }
-  .nub {
-    width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.35);
-    position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
-  }
-  .btn {
-    width:96px; height:96px; border-radius:50%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.2);
-    color:var(--fg); display:flex; align-items:center; justify-content:center; font-weight:600; touch-action:manipulation;
-  }
-  .btn:active { background:rgba(255,255,255,0.1); }
-  @media (min-width: 900px) { .controls { display:none; } }
-  .overlay {
-    position:fixed; inset:0; display:none; align-items:center; justify-content:center; color:var(--fg); z-index:13;
-    backdrop-filter: blur(3px) brightness(0.9);
-  }
-  .overlay.active { display:flex; }
-  .card {
-    background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.15); border-radius:12px; padding:16px; width:min(90vw, 520px);
-  }
-  .card h2 { margin-top:0; }
-  .shop { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px; }
-  .shop button {
-    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); border-radius:8px; color:var(--fg);
-    padding:10px; cursor:pointer;
-  }
-  .shop .row { grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center; }
-  .close-touch { margin-top:12px; width:100%; padding:10px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:8px; color:#fff; }
+body { margin:0; background:#0a0f1e; overflow:hidden; }
+canvas { display:block; }
 </style>
 </head>
 <body>
-  <canvas id="game" aria-label="Space game" role="img"></canvas>
+<canvas id="game"></canvas>
+<script>
+// =========================
+// CONSTANTS
+// =========================
+const CONFIG = {
+  PLAYER_SPEED: 290,
+  PLAYER_ACCEL: 15,
+  DRAG: 0.9,
+  BULLET_SPEED: 660,
+  BULLET_LIFE: 1.3,
+  ASTEROID_BASE: 10
+};
 
-  <div class="hud">
-    <div class="pill">
-      <span>HP:</span><span id="hp">100</span>
-      <span>Shield:</span><span id="shield">0</span>
-      <span>Score:</span><span id="score">0</span>
-      <span>Wave:</span><span id="wave">1</span>
-      <span>Credits:</span><span id="credits">0</span>
-    </div>
-    <div class="right">
-      <span class="badge" id="weapon">Blaster</span>
-      <span class="badge" id="speed">Speed: 1.0x</span>
-      <span class="badge" id="fps">FPS</span>
-      <span class="badge">Auto-saves</span>
-    </div>
-  </div>
+// =========================
+// SETUP
+// =========================
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let W, H;
 
-  <div class="controls" aria-hidden="false">
-    <div class="stick" id="stick"><div class="nub" id="nub"></div></div>
-    <div class="btn" id="fireBtn" aria-label="Fire">FIRE</div>
-  </div>
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
 
-  <div class="overlay" id="planetOverlay">
-    <div class="card">
-      <h2>Planet dock</h2>
-      <p>Safe and paused. Spend credits. Tap "Close" or press Esc to undock.</p>
-      <div class="row">Credits: <span id="shopCredits">0</span> • Wave: <span id="shopWave">1</span></div>
-      <div class="shop">
-        <button id="buyDamage">Damage + (scales)</button>
-        <button id="buyRate">Fire rate + (scales)</button>
-        <button id="buySpeed">Speed + (scales)</button>
-        <button id="buyShield">Shield + (scales)</button>
-        <button id="buyRepair">Repair to 100 HP</button>
-        <button id="buyDouble">Unlock Double Shot</button>
-        <button id="buyPierce">Unlock Piercing</button>
-        <button id="buySave">Save now</button>
-      </div>
-      <button class="close-touch" id="closeShop">Close</button>
-      <p class="small">Upgrades and costs grow with waves. Early waves are limited; late waves are powerful.</p>
-    </div>
-  </div>
+// =========================
+// GAME STATE
+// =========================
+const state = {
+  paused: false,
+  wave: 1
+};
 
-  <div class="notif" id="notif"></div>
+// =========================
+// PLAYER
+// =========================
+const player = {
+  x: 0,
+  y: 0,
+  vx: 0,
+  vy: 0,
+  angle: 0,
+  hp: 100,
+  shield: 0,
+  cooldown: 0
+};
 
-  <script>
-  (() => {
-    // Canvas
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    let W = 0, H = 0, DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    function resize() {
-      W = Math.floor(window.innerWidth);
-      H = Math.floor(window.innerHeight);
-      canvas.width = Math.floor(W * DPR);
-      canvas.height = Math.floor(H * DPR);
-      canvas.style.width = W + 'px';
-      canvas.style.height = H + 'px';
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    }
-    window.addEventListener('resize', resize);
-    resize();
+// =========================
+// ENTITIES
+// =========================
+const bullets = [];
+const asteroids = [];
 
-    // UI refs
-    const hpEl = document.getElementById('hp');
-    const shieldEl = document.getElementById('shield');
-    const scoreEl = document.getElementById('score');
-    const waveEl = document.getElementById('wave');
-    const creditsEl = document.getElementById('credits');
-    const weaponEl = document.getElementById('weapon');
-    const speedEl = document.getElementById('speed');
-    const fpsEl = document.getElementById('fps');
-    const notifEl = document.getElementById('notif');
-    const planetOverlay = document.getElementById('planetOverlay');
-    const shopCredits = document.getElementById('shopCredits');
-    const shopWave = document.getElementById('shopWave');
+// =========================
+// INPUT
+// =========================
+const keys = new Set();
+window.addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
+window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 
-    // Shop buttons
-    const btnDamage = document.getElementById('buyDamage');
-    const btnRate = document.getElementById('buyRate');
-    const btnSpeed = document.getElementById('buySpeed');
-    const btnShield = document.getElementById('buyShield');
-    const btnRepair = document.getElementById('buyRepair');
-    const btnDouble = document.getElementById('buyDouble');
-    const btnPierce = document.getElementById('buyPierce');
-    const btnSaveNow = document.getElementById('buySave');
-    const btnClose = document.getElementById('closeShop');
+// =========================
+// HELPERS
+// =========================
+function dist2(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx*dx + dy*dy;
+}
 
-    // Input
-    const keys = new Set();
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
-      if (e.key === 'Escape') unpauseFromPlanet();
-      keys.add(e.key.toLowerCase());
-    });
-    window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+// =========================
+// SPAWNING
+// =========================
+function spawnAsteroid() {
+  const angle = Math.random()*Math.PI*2;
+  const dist = 800 + Math.random()*400;
+  const x = player.x + Math.cos(angle)*dist;
+  const y = player.y + Math.sin(angle)*dist;
 
-    // Mobile controls: smooth analog steering (fixes chunk movement)
-    const stick = document.getElementById('stick');
-    const nub = document.getElementById('nub');
-    const fireBtn = document.getElementById('fireBtn');
-    let joyActive = false, joyDX = 0, joyDY = 0, fireHeld = false;
-    let joyVX = 0, joyVY = 0; // smoothed joystick vector
-    function setNub(x, y) { nub.style.left = (x * 50 + 50) + '%'; nub.style.top = (y * 50 + 50) + '%'; }
-    function joyReset() { joyDX = 0; joyDY = 0; setNub(0,0); }
-    stick.addEventListener('pointerdown', (e) => { joyActive = true; stick.setPointerCapture(e.pointerId); });
-    stick.addEventListener('pointermove', (e) => {
-      if (!joyActive) return;
-      const r = stick.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2;
-      const dx = e.clientX - cx, dy = e.clientY - cy;
-      const max = r.width * 0.45, len = Math.hypot(dx, dy);
-      const nx = len > max ? dx * (max / len) : dx;
-      const ny = len > max ? dy * (max / len) : dy;
-      joyDX = nx / max; joyDY = ny / max;
-      setNub(joyDX, joyDY);
-    });
-    stick.addEventListener('pointerup', () => { joyActive = false; joyReset(); });
-    fireBtn.addEventListener('pointerdown', () => { fireHeld = true; });
-    fireBtn.addEventListener('pointerup', () => { fireHeld = false; });
+  const dir = Math.atan2(player.y - y, player.x - x);
 
-    // Helpers
-    const TAU = Math.PI * 2;
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    const rand = (n=1) => Math.random() * n;
+  asteroids.push({
+    x, y,
+    vx: Math.cos(dir)*100,
+    vy: Math.sin(dir)*100,
+    r: 20 + Math.random()*20,
+    hp: 30
+  });
+}
 
-    // World
-    const world = { pois: [], parallax: [
-      { stars: [], count: 140, speed: 0.08, color: '#98a6d6' },
-      { stars: [], count: 90, speed: 0.2, color: '#b7c5ff' },
-      { stars: [], count: 60, speed: 0.4, color: '#e0ecff' }
-    ] };
+function startWave() {
+  for (let i=0;i<CONFIG.ASTEROID_BASE + state.wave*2;i++) {
+    spawnAsteroid();
+  }
+}
+startWave();
 
-    function genPlanets(count = 40) {
-      world.pois.length = 0;
-      for (let i = 0; i < count; i++) {
-        const ang = rand(TAU), dist = 1500 + rand(22000);
-        const size = 60 + rand(60);
-        world.pois.push({
-          type: 'planet',
-          x: Math.cos(ang)*dist,
-          y: Math.sin(ang)*dist,
-          size,
-          hue: Math.floor(rand(360)),
-          safeRadius: size + 160, // safe zone matches visual planet size (+buffer)
-          name: 'Planet-' + (i+1)
-        });
-      }
-    }
-    genPlanets();
+// =========================
+// SHOOT
+// =========================
+function fire() {
+  if (player.cooldown > 0) return;
+  player.cooldown = 0.2;
 
-    // Player
-    const player = {
-      x: 0, y: 0, vx: 0, vy: 0, angle: 0,
-      speed: 290, accel: 15, drag: 0.90,
-      hp: 100, shield: 0, score: 0, credits: 0,
-      fireCooldown: 0, shotRate: 0.16,
-      shotSpeed: 660, shotDamage: 10, shotWidth: 2,
-      doubleShot: false, pierce: false,
-      inSafeZone: false
-    };
+  bullets.push({
+    x: player.x,
+    y: player.y,
+    vx: Math.cos(player.angle)*CONFIG.BULLET_SPEED,
+    vy: Math.sin(player.angle)*CONFIG.BULLET_SPEED,
+    life: CONFIG.BULLET_LIFE,
+    angle: player.angle
+  });
+}
 
-    // Entities
-    const bullets = [];
-    const asteroids = [];
-    const particles = [];
+// =========================
+// UPDATE
+// =========================
+function update(dt) {
+  if (state.paused) return;
 
-    // Waves
-    let waveLevel = 1;
-    let paused = false;
+  // Movement
+  let ax = 0, ay = 0;
+  if (keys.has("w") || keys.has("arrowup")) ay -= CONFIG.PLAYER_ACCEL;
+  if (keys.has("s") || keys.has("arrowdown")) ay += CONFIG.PLAYER_ACCEL;
+  if (keys.has("a") || keys.has("arrowleft")) ax -= CONFIG.PLAYER_ACCEL;
+  if (keys.has("d") || keys.has("arrowright")) ax += CONFIG.PLAYER_ACCEL;
 
-    function startWave(level) {
-      const count = Math.floor(10 + (level - 1) * 3.5); // Wave 1 = 10 asteroids, increases
-      for (let i = 0; i < count; i++) spawnAsteroid(level);
-      waveEl.textContent = level;
-      shopWave.textContent = level;
-      autoSave(); // auto-save on wave start
-    }
+  player.vx += ax;
+  player.vy += ay;
 
-    // Spawn asteroids aimed at ship initially, then straight-line (no homing)
-    function spawnAsteroid(level = waveLevel) {
-      if (player.inSafeZone && Math.random() < 0.9) return; // drastically reduced near planets
-      const dist = 760 + rand(960);
-      const ang = rand(TAU);
-      const x = player.x + Math.cos(ang) * dist;
-      const y = player.y + Math.sin(ang) * dist;
-      const r = 20 + rand(26) + level * 0.7;
-      const hp = Math.round(28 + level * 6 + rand(18));
-      const speed = 90 + level * 6 + rand(30);
-      const dir = Math.atan2(player.y - y, player.x - x); // point at ship at spawn
-      asteroids.push({
-        x, y, r, hp,
-        vx: Math.cos(dir) * speed,
-        vy: Math.sin(dir) * speed,
-        shape: makeRockShape(r) // store static irregular shape, no spin
-      });
-    }
+  player.vx *= CONFIG.DRAG;
+  player.vy *= CONFIG.DRAG;
 
-    // Irregular rock shape (non-spinning)
-    function makeRockShape(r) {
-      const sides = 6 + Math.floor(rand(3));
-      const pts = [];
-      for (let i=0;i<sides;i++) {
-        const ang = i * TAU / sides;
-        const rad = r * (0.78 + rand(0.22));
-        pts.push({ x: Math.cos(ang)*rad, y: Math.sin(ang)*rad });
-      }
-      return pts;
-    }
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
 
-    // Shooting
-    function fire() {
-      if (player.fireCooldown > 0) return;
-      player.fireCooldown = player.shotRate;
-      const baseAng = player.angle;
-      const n = player.doubleShot ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        const ang = baseAng + (player.doubleShot ? (i === 0 ? -0.1 : 0.1) : 0);
-        bullets.push({
-          x: player.x + Math.cos(baseAng)*18,
-          y: player.y + Math.sin(baseAng)*18,
-          vx: Math.cos(ang)*player.shotSpeed + player.vx*0.25,
-          vy: Math.sin(ang)*player.shotSpeed + player.vy*0.25,
-          life: 1.3,
-          w: player.shotWidth,
-          dmg: player.shotDamage,
-          pierce: player.pierce ? 2 : 0
-        });
-      }
-    }
+  if (Math.abs(player.vx)+Math.abs(player.vy) > 1) {
+    player.angle = Math.atan2(player.vy, player.vx);
+  }
 
-    // Notifications
-    let notifTimer = 0;
-    function notify(msg) {
-      notifEl.textContent = msg;
-      notifEl.style.display = 'block';
-      notifTimer = 2.2;
-    }
+  // Shooting
+  if (keys.has(" ")) fire();
+  player.cooldown -= dt;
 
-    // Auto-save (simplified)
-    function autoSave() {
-      const data = {
-        player: {
-          hp: player.hp, shield: player.shield, score: player.score, credits: player.credits,
-          shotDamage: player.shotDamage, shotRate: player.shotRate, speed: player.speed,
-          doubleShot: player.doubleShot, pierce: player.pierce
-        },
-        waveLevel,
-        pois: world.pois.map(p => ({ type:p.type, x:p.x, y:p.y, size:p.size, hue:p.hue, safeRadius:p.safeRadius, name:p.name }))
-      };
-      try { localStorage.setItem('StarDriftAutoSave', JSON.stringify(data)); } catch {}
-    }
-    function loadAutoSave() {
-      const raw = localStorage.getItem('StarDriftAutoSave');
-      if (!raw) return;
-      try {
-        const data = JSON.parse(raw);
-        const s = data.player;
-        player.hp = s.hp; player.shield = s.shield; player.score = s.score; player.credits = s.credits;
-        player.shotDamage = s.shotDamage; player.shotRate = s.shotRate; player.speed = s.speed;
-        player.doubleShot = !!s.doubleShot; player.pierce = !!s.pierce;
-        waveLevel = data.waveLevel || waveLevel;
-        if (Array.isArray(data.pois) && data.pois.length) world.pois = data.pois;
-        notify('Loaded autosave');
-        asteroids.length = 0; startWave(waveLevel);
-      } catch {}
-    }
+  // Bullets
+  for (let i=bullets.length-1;i>=0;i--) {
+    const b = bullets[i];
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
+    if (b.life <= 0) bullets.splice(i,1);
+  }
 
-    // Parallax stars
-    function initStars() {
-      world.parallax.forEach(layer => {
-        layer.stars.length = 0;
-        for (let i = 0; i < layer.count; i++) {
-          layer.stars.push({ x: rand(W), y: rand(H), s: 1 + Math.floor(rand(2)) });
-        }
-      });
-    }
-    initStars();
+  // Asteroids
+  for (let i=asteroids.length-1;i>=0;i--) {
+    const a = asteroids[i];
+    a.x += a.vx * dt;
+    a.y += a.vy * dt;
 
-    // Transform
-    function toScreen(x,y) { return { x: x - player.x + W/2, y: y - player.y + H/2 }; }
-
-    // Proximity arrow (only close, disappears on arrival, edge-clamped, subtle)
-    function drawPOIArrow() {
-      if (paused) return;
-      let best = null, bestDist = Infinity;
-      for (const p of world.pois) {
-        if (p.type !== 'planet') continue;
-        const d = Math.hypot(player.x - p.x, player.y - p.y);
-        if (d < bestDist) { bestDist = d; best = p; }
-      }
-      if (!best) return;
-      const arriveDist = best.size + 140;
-      const showDist = 1200;
-      if (bestDist <= arriveDist || bestDist > showDist) return;
-
-      const ang = Math.atan2(best.y - player.y, best.x - player.x);
-      const margin = 24;
-      const cx = W/2, cy = H/2;
-      const dx = Math.cos(ang), dy = Math.sin(ang);
-      const rx = W/2 - margin, ry = H/2 - margin;
-      const k = Math.min(Math.abs(rx / dx) || Infinity, Math.abs(ry / dy) || Infinity);
-      const ex = cx + dx * Math.min(k, rx);
-      const ey = cy + dy * Math.min(k, ry);
-
-      ctx.save();
-      ctx.translate(ex, ey);
-      ctx.rotate(ang);
-      ctx.fillStyle = 'rgba(255,207,111,0.6)';
-      ctx.beginPath();
-      ctx.moveTo(11, 0); ctx.lineTo(-6, -4); ctx.lineTo(-6, 4); ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // Planet visuals + safe zone + dock (pauses game)
-    function drawPlanet(p) {
-      const s = toScreen(p.x, p.y);
-      if (s.x < -p.size-200 || s.x > W+p.size+200 || s.y < -p.size-200 || s.y > H+p.size+200) return;
-
-      const hue = p.hue;
-      const base = `hsl(${hue}, 55%, 45%)`;
-      const grad = ctx.createRadialGradient(s.x - p.size*0.25, s.y - p.size*0.25, p.size*0.25, s.x, s.y, p.size);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.15, base);
-      grad.addColorStop(1, '#0a0f1e');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(s.x, s.y, p.size, 0, TAU); ctx.fill();
-
-      ctx.strokeStyle = `hsla(${hue}, 70%, 65%, 0.15)`;
-      ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(s.x, s.y, p.size + 2, 0, TAU); ctx.stroke();
-
-      // Label when close
-      const d = Math.hypot(player.x - p.x, player.y - p.y);
-      if (d < 900) {
-        ctx.fillStyle = 'rgba(200,220,255,0.85)';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(`${p.name}`, s.x + 10, s.y - p.size - 8);
-      }
-
-      // Safe zone & docking
-      const inSafe = d < p.safeRadius;
-      if (inSafe) {
-        player.inSafeZone = true;
-        if (d < p.size + 120) {
-          if (!paused) pauseAtPlanet();
-        } else {
-          if (paused) unpauseFromPlanet();
+    // collision
+    for (let j=bullets.length-1;j>=0;j--) {
+      const b = bullets[j];
+      if (dist2(a,b) < (a.r*a.r)) {
+        a.hp -= 10;
+        bullets.splice(j,1);
+        if (a.hp <= 0) {
+          asteroids.splice(i,1);
+          break;
         }
       }
     }
+  }
 
-    function pauseAtPlanet() {
-      paused = true;
-      planetOverlay.classList.add('active');
-      shopCredits.textContent = player.credits;
-      shopWave.textContent = waveLevel;
-      updateShopLabels();
-    }
-    function unpauseFromPlanet() {
-      paused = false;
-      planetOverlay.classList.remove('active');
-    }
-    btnClose.addEventListener('click', unpauseFromPlanet);
-    planetOverlay.addEventListener('click', (e) => { if (e.target === planetOverlay) unpauseFromPlanet(); });
+  // Maintain wave
+  if (asteroids.length === 0) {
+    state.wave++;
+    startWave();
+  }
+}
 
-    // Simplified shop: 8 buttons, scaling labels
-    function cost(base, perWave) { return Math.floor(base + waveLevel * perWave); }
-    function updateShopLabels() {
-      btnDamage.textContent = `Damage +${1 + Math.floor(waveLevel/10)} — ${cost(15, 2)} cr`;
-      btnRate.textContent = `Fire rate +${Math.round(5 + waveLevel/5)}% — ${cost(18, 3)} cr`;
-      btnSpeed.textContent = `Speed +${Math.round(5 + waveLevel/6)}% — ${cost(18, 3)} cr`;
-      btnShield.textContent = `Shield +${Math.min(25 + Math.floor(waveLevel/3)*5, 120)} — ${cost(12, 2)} cr`;
-      btnRepair.textContent = `Repair to 100 — ${cost(8, 1)} cr`;
-      btnDouble.textContent = player.doubleShot ? 'Double Shot unlocked' : `Unlock Double Shot — ${cost(35, 5)} cr`;
-      btnPierce.textContent = player.pierce ? 'Piercing unlocked' : `Unlock Piercing — ${cost(40, 6)} cr`;
-    }
-    function tryBuy(c, apply) {
-      if (player.credits >= c) { player.credits -= c; apply(); notify('Purchased'); updateHUD(); shopCredits.textContent = player.credits; autoSave(); }
-      else { notify('Not enough credits'); }
-    }
-    btnDamage.addEventListener('click', () => {
-      tryBuy(cost(15, 2), () => { player.shotDamage += (1 + Math.floor(waveLevel/10)); });
-    });
-    btnRate.addEventListener('click', () => {
-      const pct = (5 + waveLevel/5) / 100;
-      tryBuy(cost(18, 3), () => { player.shotRate = Math.max(0.05, player.shotRate * (1 - pct)); });
-    });
-    btnSpeed.addEventListener('click', () => {
-      const pct = (5 + waveLevel/6) / 100;
-      tryBuy(cost(18, 3), () => { player.speed *= (1 + pct); speedEl.textContent = `Speed: ${(player.speed/290).toFixed(1)}x`; });
-    });
-    btnShield.addEventListener('click', () => {
-      const add = Math.min(25 + Math.floor(waveLevel/3)*5, 120);
-      tryBuy(cost(12, 2), () => { player.shield = Math.min(120, player.shield + add); });
-    });
-    btnRepair.addEventListener('click', () => { tryBuy(cost(8, 1), () => { player.hp = 100; }); });
-    btnDouble.addEventListener('click', () => {
-      if (player.doubleShot) return;
-      tryBuy(cost(35, 5), () => { player.doubleShot = true; weaponEl.textContent = 'Double Blaster'; });
-    });
-    btnPierce.addEventListener('click', () => {
-      if (player.pierce) return;
-      tryBuy(cost(40, 6), () => { player.pierce = true; });
-    });
-    btnSaveNow.addEventListener('click', autoSave);
+// =========================
+// RENDER
+// =========================
+function render() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0,0,W,H);
 
-    // Drone (kept out of shop for simplicity). If you want it later, add similar button.
-    // Steering smoothing
-    function smoothAnalog(dt) {
-      // critically damped smoothing of joystick vector to avoid chunking
-      const targetX = joyDX, targetY = joyDY;
-      const lerp = 1 - Math.exp(-12 * dt); // fast smoothing, frame-rate independent
-      joyVX += (targetX - joyVX) * lerp;
-      joyVY += (targetY - joyVY) * lerp;
-    }
+  const cx = W/2;
+  const cy = H/2;
 
-    // Drawing helpers
-    function drawAsteroid(a) {
-      const s = toScreen(a.x, a.y);
-      if (s.x < -a.r-30 || s.x > W+a.r+30 || s.y < -a.r-30 || s.y > H+a.r+30) return;
-      ctx.fillStyle = '#3e455d';
-      ctx.beginPath();
-      const pts = a.shape;
-      for (let i=0;i<pts.length;i++) {
-        const px = s.x + pts[i].x, py = s.y + pts[i].y;
-        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(230,240,255,0.12)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // veins
-      ctx.strokeStyle = 'rgba(180,190,220,0.15)';
-      ctx.beginPath();
-      for (let i=0;i<2;i++){
-        const ang = rand(TAU);
-        ctx.moveTo(s.x + Math.cos(ang)*a.r*0.2, s.y + Math.sin(ang)*a.r*0.2);
-        ctx.lineTo(s.x + Math.cos(ang)*a.r*0.85, s.y + Math.sin(ang)*a.r*0.85);
-      }
-      ctx.stroke();
-    }
-    function explode(x, y, color = '#ffd29e', n = 14) {
-      for (let i = 0; i < n; i++) {
-        const ang = rand(TAU), sp = 120 + rand(160);
-        particles.push({ x, y, vx: Math.cos(ang)*sp, vy: Math.sin(ang)*sp, life: 0.6 + rand(0.5), color });
-      }
-    }
+  // Player
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.angle);
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.moveTo(15,0);
+  ctx.lineTo(-10,-8);
+  ctx.lineTo(-10,8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 
-    // HUD
-    function updateHUD() {
-      hpEl.textContent = Math.max(0, Math.round(player.hp));
-      shieldEl.textContent = Math.round(player.shield);
-      scoreEl.textContent = player.score;
-      creditsEl.textContent = player.credits;
-      speedEl.textContent = `Speed: ${(player.speed/290).toFixed(1)}x`;
-      weaponEl.textContent = player.doubleShot ? 'Double Blaster' : 'Blaster';
-    }
+  // Bullets
+  ctx.strokeStyle = "cyan";
+  for (const b of bullets) {
+    const x = cx + (b.x - player.x);
+    const y = cy + (b.y - player.y);
+    ctx.beginPath();
+    ctx.moveTo(x,y);
+    ctx.lineTo(x - Math.cos(b.angle)*5, y - Math.sin(b.angle)*5);
+    ctx.stroke();
+  }
 
-    // Main loop
-    let last = performance.now(), fpsAcc = 0, fpsFrames = 0, fps = 0;
-    startWave(waveLevel);
-    loadAutoSave();
+  // Asteroids
+  ctx.fillStyle = "gray";
+  for (const a of asteroids) {
+    const x = cx + (a.x - player.x);
+    const y = cy + (a.y - player.y);
+    ctx.beginPath();
+    ctx.arc(x,y,a.r,0,Math.PI*2);
+    ctx.fill();
+  }
+}
 
-    function loop(now) {
-      requestAnimationFrame(loop);
-      const dt = Math.min(0.033, (now - last) / 1000);
-      last = now;
+// =========================
+// LOOP
+// =========================
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033,(now-last)/1000);
+  last = now;
 
-      fpsAcc += dt; fpsFrames++;
-      if (fpsAcc >= 0.5) { fps = Math.round(fpsFrames / fpsAcc); fpsAcc = 0; fpsFrames = 0; fpsEl.textContent = `FPS: ${fps}`; }
+  update(dt);
+  render();
 
-      smoothAnalog(dt);
-
-      // Input
-      const up = keys.has('arrowup') || keys.has('w') || joyVY < -0.15;
-      const down = keys.has('arrowdown') || keys.has('s') || joyVY > 0.15;
-      const left = keys.has('arrowleft') || keys.has('a') || joyVX < -0.15;
-      const right = keys.has('arrowright') || keys.has('d') || joyVX > 0.15;
-      const shooting = keys.has(' ') || fireHeld;
-
-      if (!paused) {
-        const ax = (right - left) * player.accel + joyVX * player.accel * 1.2;
-        const ay = (down - up) * player.accel + joyVY * player.accel * 1.2;
-        player.vx += ax; player.vy += ay;
-
-        const maxV = player.speed;
-        const vLen = Math.hypot(player.vx, player.vy);
-        if (vLen > maxV) { const k = maxV / vLen; player.vx *= k; player.vy *= k; }
-        player.vx *= player.drag; player.vy *= player.drag;
-        player.x += player.vx * dt * 60 * 0.016;
-        player.y += player.vy * dt * 60 * 0.016;
-        if (vLen > 5) player.angle = Math.atan2(player.vy, player.vx);
-
-        player.fireCooldown = Math.max(0, player.fireCooldown - dt);
-        if (shooting) fire();
-      }
-
-      // Safe zone detection
-      player.inSafeZone = false;
-      for (const p of world.pois) {
-        if (p.type !== 'planet') continue;
-        const d = Math.hypot(player.x - p.x, player.y - p.y);
-        if (d < p.safeRadius) { player.inSafeZone = true; break; }
-      }
-
-      // Bullets
-      if (!paused) {
-        for (let i = bullets.length-1; i >= 0; i--) {
-          const b = bullets[i];
-          b.x += b.vx * dt;
-          b.y += b.vy * dt;
-          b.life -= dt;
-          if (b.life <= 0) bullets.splice(i,1);
-        }
-      }
-
-      // Asteroids
-      if (!paused) {
-        const slowFactor = 1;
-        for (let i = asteroids.length-1; i >= 0; i--) {
-          const a = asteroids[i];
-          a.x += a.vx * dt * slowFactor;
-          a.y += a.vy * dt * slowFactor;
-
-          // Bullet hits
-          for (let j = bullets.length-1; j >= 0; j--) {
-            const b = bullets[j];
-            if ((a.x-b.x)**2 + (a.y-b.y)**2 <= (a.r+3)**2) {
-              a.hp -= b.dmg;
-              if (b.pierce > 0) { b.pierce--; } else { bullets.splice(j,1); }
-              if (a.hp <= 0) {
-                player.score += Math.round(10 + a.r);
-                player.credits += 5;
-                explode(a.x, a.y);
-                asteroids.splice(i,1);
-                break;
-              }
-            }
-          }
-
-          // Player collision: damage scales with wave (start 5, increase)
-          if ((a.x-player.x)**2 + (a.y-player.y)**2 <= (a.r+14)**2) {
-            const base = 5;
-            const scaled = Math.floor(waveLevel * 0.6);
-            const dmg = base + scaled;
-            if (player.shield > 0) {
-              const absorb = Math.min(player.shield, dmg);
-              player.shield -= absorb;
-              player.hp -= (dmg - absorb);
-            } else {
-              player.hp -= dmg;
-            }
-            explode(player.x, player.y, '#ff7f7f', 10);
-            const dx = a.x - player.x, dy = a.y - player.y, len = Math.hypot(dx, dy) || 1;
-            a.vx += (dx/len) * 40; a.vy += (dy/len) * 40;
-
-            if (player.hp <= 0) {
-              player.credits = Math.floor(player.credits * 0.5); // lose 50%
-              notify('Ship destroyed. Lost 50% credits. Respawning wave ' + waveLevel);
-              respawnSameWave();
-              break;
-            }
-          }
-        }
-
-        // Maintain wave pressure: if asteroids too few, spawn mini batch
-        const desired = Math.floor(10 + (waveLevel - 1) * 3.5);
-        if (asteroids.length < Math.floor(desired * 0.35)) {
-          const add = Math.min(5, desired - asteroids.length);
-          for (let i = 0; i < add; i++) spawnAsteroid();
-        }
-      }
-
-      // Particles
-      for (let i = particles.length-1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
-        const s = toScreen(p.x, p.y);
-        ctx.globalAlpha = Math.max(0, p.life);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(s.x, s.y, 2, 2);
-        ctx.globalAlpha = 1;
-        if (p.life <= 0) particles.splice(i,1);
-      }
-
-      // Parallax
-      ctx.fillStyle = '#060a16';
-      ctx.fillRect(0,0,W,H);
-      world.parallax.forEach(layer => {
-        ctx.fillStyle = layer.color;
-        const ox = -player.vx * layer.speed * dt;
-        const oy = -player.vy * layer.speed * dt;
-        for (const s of layer.stars) {
-          s.x += ox; s.y += oy;
-          if (s.x < 0) s.x += W; if (s.x >= W) s.x -= W;
-          if (s.y < 0) s.y += H; if (s.y >= H) s.y -= H;
-          ctx.fillRect(s.x|0, s.y|0, 1, 1);
-        }
-      });
-
-      // Planets
-      for (const p of world.pois) { if (p.type === 'planet') drawPlanet(p); }
-
-      // Arrow
-      drawPOIArrow();
-
-      // Draw asteroids
-      for (const a of asteroids) drawAsteroid(a);
-
-      // Draw bullets
-      ctx.strokeStyle = '#b7c5ff';
-      for (const b of bullets) {
-        const s = toScreen(b.x, b.y);
-        ctx.lineWidth = b.w;
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y);
-        ctx.lineTo(s.x - Math.cos(player.angle)*8, s.y - Math.sin(player.angle)*8);
-        ctx.stroke();
-      }
-
-      // Player ship
-      const px = W/2, py = H/2;
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(player.angle);
-      ctx.fillStyle = '#7fb0ff';
-      ctx.beginPath();
-      ctx.moveTo(18, 0);
-      ctx.lineTo(-12, -10);
-      ctx.lineTo(-6, 0);
-      ctx.lineTo(-12, 10);
-      ctx.closePath();
-      ctx.fill();
-      if (player.shield > 0) {
-        const alpha = clamp(player.shield / 120, 0.2, 0.7);
-        ctx.strokeStyle = `rgba(92,255,177,${alpha})`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0,0, 16, 0, TAU);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      updateHUD();
-      if (notifTimer > 0) { notifTimer -= dt; if (notifTimer <= 0) notifEl.style.display = 'none'; }
-    }
-    requestAnimationFrame(loop);
-
-    function respawnSameWave() {
-      player.hp = 100; player.shield = 0;
-      player.x = 0; player.y = 0; player.vx = 0; player.vy = 0;
-      bullets.length = 0; asteroids.length = 0; particles.length = 0;
-      paused = false; planetOverlay.classList.remove('active');
-      startWave(waveLevel);
-      updateHUD();
-    }
-
-    // Respawn hotkey
-    window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'r') {
-        notify('Respawning wave ' + waveLevel);
-        respawnSameWave();
-      }
-    });
-
-    // Autosave load tip
-    window.addEventListener('load', () => {
-      notify('Hold Space or tap FIRE to shoot. Dock at planets to shop.');
-      setTimeout(() => { notifEl.style.display = 'none'; }, 3000);
-    });
-  })();
-  </script>
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
-```
