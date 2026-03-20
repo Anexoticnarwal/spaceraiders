@@ -2,253 +2,254 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Star Drift (Refactored)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Star Drift FULL FIX</title>
 <style>
-body { margin:0; background:#0a0f1e; overflow:hidden; }
-canvas { display:block; }
+body{margin:0;background:#0a0f1e;overflow:hidden;color:#fff;font-family:sans-serif}
+canvas{display:block;touch-action:none}
+
+.hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:14px}
+
+.controls{position:fixed;bottom:20px;left:20px;right:20px;display:flex;justify-content:space-between}
+.stick{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.1);position:relative;touch-action:none}
+.nub{width:50px;height:50px;border-radius:50%;background:white;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.fire{width:80px;height:80px;border-radius:50%;background:red;display:flex;align-items:center;justify-content:center}
+
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.7)}
+.overlay.active{display:flex}
+.card{background:#111;padding:20px;border-radius:10px}
+
+@media (min-width:900px){.controls{display:none}}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+
+<div class="hud">
+<div>HP:<span id="hp">100</span> Shield:<span id="shield">0</span> Credits:<span id="credits">0</span></div>
+<div>Wave:<span id="wave">1</span></div>
+</div>
+
+<div class="controls">
+<div class="stick" id="stick"><div class="nub" id="nub"></div></div>
+<div class="fire" id="fireBtn">FIRE</div>
+</div>
+
+<div class="overlay" id="shop">
+<div class="card">
+<h3>Shop</h3>
+<button id="dmg">+Damage (10)</button><br><br>
+<button id="spd">+Speed (10)</button><br><br>
+<button id="heal">Heal (5)</button><br><br>
+<button onclick="closeShop()">Close</button>
+</div>
+</div>
+
 <script>
-// =========================
-// CONSTANTS
-// =========================
-const CONFIG = {
-  PLAYER_SPEED: 290,
-  PLAYER_ACCEL: 15,
-  DRAG: 0.9,
-  BULLET_SPEED: 660,
-  BULLET_LIFE: 1.3,
-  ASTEROID_BASE: 10
-};
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener("resize",resize);resize();
 
-// =========================
-// SETUP
-// =========================
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let W, H;
+// STATE
+const player={x:0,y:0,vx:0,vy:0,angle:0,hp:100,shield:0,credits:0,cool:0,speed:300,dmg:10};
+const bullets=[];
+const asteroids=[];
+const planets=[];
+let wave=1;
+let paused=false;
 
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resize);
-resize();
+// UI
+const hpEl=document.getElementById("hp");
+const shieldEl=document.getElementById("shield");
+const creditsEl=document.getElementById("credits");
+const waveEl=document.getElementById("wave");
 
-// =========================
-// GAME STATE
-// =========================
-const state = {
-  paused: false,
-  wave: 1
-};
-
-// =========================
-// PLAYER
-// =========================
-const player = {
-  x: 0,
-  y: 0,
-  vx: 0,
-  vy: 0,
-  angle: 0,
-  hp: 100,
-  shield: 0,
-  cooldown: 0
-};
-
-// =========================
-// ENTITIES
-// =========================
-const bullets = [];
-const asteroids = [];
-
-// =========================
 // INPUT
-// =========================
-const keys = new Set();
-window.addEventListener("keydown", e => keys.add(e.key.toLowerCase()));
-window.addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
+let joyX=0,joyY=0,firing=false;
+const stick=document.getElementById("stick"),nub=document.getElementById("nub"),fireBtn=document.getElementById("fireBtn");
+let activeId=null;
 
-// =========================
-// HELPERS
-// =========================
-function dist2(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return dx*dx + dy*dy;
+stick.addEventListener("pointerdown",e=>{activeId=e.pointerId;stick.setPointerCapture(e.pointerId)});
+stick.addEventListener("pointermove",e=>{
+ if(e.pointerId!==activeId)return;
+ const r=stick.getBoundingClientRect();
+ let dx=e.clientX-(r.left+r.width/2);
+ let dy=e.clientY-(r.top+r.height/2);
+ const max=r.width/2;
+ const len=Math.hypot(dx,dy);
+ if(len>max){dx*=max/len;dy*=max/len}
+ joyX=dx/max;joyY=dy/max;
+ nub.style.left=(50+joyX*50)+"%";
+ nub.style.top=(50+joyY*50)+"%";
+});
+function resetStick(){joyX=0;joyY=0;activeId=null;nub.style.left="50%";nub.style.top="50%"}
+stick.addEventListener("pointerup",resetStick);
+stick.addEventListener("pointercancel",resetStick);
+fireBtn.addEventListener("pointerdown",()=>firing=true);
+fireBtn.addEventListener("pointerup",()=>firing=false);
+fireBtn.addEventListener("pointercancel",()=>firing=false);
+
+// PLANETS
+for(let i=0;i<8;i++){
+ planets.push({x:(Math.random()-0.5)*3000,y:(Math.random()-0.5)*3000,r:80});
 }
 
-// =========================
-// SPAWNING
-// =========================
-function spawnAsteroid() {
-  const angle = Math.random()*Math.PI*2;
-  const dist = 800 + Math.random()*400;
-  const x = player.x + Math.cos(angle)*dist;
-  const y = player.y + Math.sin(angle)*dist;
-
-  const dir = Math.atan2(player.y - y, player.x - x);
-
-  asteroids.push({
-    x, y,
-    vx: Math.cos(dir)*100,
-    vy: Math.sin(dir)*100,
-    r: 20 + Math.random()*20,
-    hp: 30
-  });
+function spawnAsteroid(){
+ const a=Math.random()*Math.PI*2;
+ const d=800+Math.random()*400;
+ const x=player.x+Math.cos(a)*d;
+ const y=player.y+Math.sin(a)*d;
+ const dir=Math.atan2(player.y-y,player.x-x);
+ asteroids.push({x,y,vx:Math.cos(dir)*80,vy:Math.sin(dir)*80,r:20,hp:20+wave*5});
 }
 
-function startWave() {
-  for (let i=0;i<CONFIG.ASTEROID_BASE + state.wave*2;i++) {
-    spawnAsteroid();
-  }
+function startWave(){
+ for(let i=0;i<8+wave*2;i++)spawnAsteroid();
+ waveEl.textContent=wave;
 }
 startWave();
 
-// =========================
-// SHOOT
-// =========================
-function fire() {
-  if (player.cooldown > 0) return;
-  player.cooldown = 0.2;
-
-  bullets.push({
-    x: player.x,
-    y: player.y,
-    vx: Math.cos(player.angle)*CONFIG.BULLET_SPEED,
-    vy: Math.sin(player.angle)*CONFIG.BULLET_SPEED,
-    life: CONFIG.BULLET_LIFE,
-    angle: player.angle
-  });
+function fire(){
+ if(player.cool>0)return;
+ player.cool=0.2;
+ bullets.push({x:player.x,y:player.y,vx:Math.cos(player.angle)*600,vy:Math.sin(player.angle)*600,life:1,angle:player.angle});
 }
 
-// =========================
-// UPDATE
-// =========================
-function update(dt) {
-  if (state.paused) return;
+function openShop(){paused=true;document.getElementById("shop").classList.add("active")}
+function closeShop(){paused=false;document.getElementById("shop").classList.remove("active")}
+window.closeShop=closeShop;
 
-  // Movement
-  let ax = 0, ay = 0;
-  if (keys.has("w") || keys.has("arrowup")) ay -= CONFIG.PLAYER_ACCEL;
-  if (keys.has("s") || keys.has("arrowdown")) ay += CONFIG.PLAYER_ACCEL;
-  if (keys.has("a") || keys.has("arrowleft")) ax -= CONFIG.PLAYER_ACCEL;
-  if (keys.has("d") || keys.has("arrowright")) ax += CONFIG.PLAYER_ACCEL;
+// SHOP
+document.getElementById("dmg").onclick=()=>{if(player.credits>=10){player.credits-=10;player.dmg+=5}}
+document.getElementById("spd").onclick=()=>{if(player.credits>=10){player.credits-=10;player.speed+=50}}
+document.getElementById("heal").onclick=()=>{if(player.credits>=5){player.credits-=5;player.hp=100}}
 
-  player.vx += ax;
-  player.vy += ay;
+function update(dt){
+ if(paused)return;
 
-  player.vx *= CONFIG.DRAG;
-  player.vy *= CONFIG.DRAG;
+ // movement
+ player.vx+=joyX*20;
+ player.vy+=joyY*20;
+ player.vx*=0.9;player.vy*=0.9;
+ player.x+=player.vx*dt;player.y+=player.vy*dt;
+ if(Math.abs(player.vx)+Math.abs(player.vy)>1)player.angle=Math.atan2(player.vy,player.vx);
 
-  player.x += player.vx * dt;
-  player.y += player.vy * dt;
+ if(firing)fire();
+ player.cool-=dt;
 
-  if (Math.abs(player.vx)+Math.abs(player.vy) > 1) {
-    player.angle = Math.atan2(player.vy, player.vx);
-  }
+ // bullets
+ for(let i=bullets.length-1;i>=0;i--){
+  const b=bullets[i];
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  if(b.life<=0)bullets.splice(i,1);
+ }
 
-  // Shooting
-  if (keys.has(" ")) fire();
-  player.cooldown -= dt;
+ // asteroids
+ for(let i=asteroids.length-1;i>=0;i--){
+  const a=asteroids[i];
+  a.x+=a.vx*dt;a.y+=a.vy*dt;
 
-  // Bullets
-  for (let i=bullets.length-1;i>=0;i--) {
-    const b = bullets[i];
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
-    b.life -= dt;
-    if (b.life <= 0) bullets.splice(i,1);
-  }
-
-  // Asteroids
-  for (let i=asteroids.length-1;i>=0;i--) {
-    const a = asteroids[i];
-    a.x += a.vx * dt;
-    a.y += a.vy * dt;
-
-    // collision
-    for (let j=bullets.length-1;j>=0;j--) {
-      const b = bullets[j];
-      if (dist2(a,b) < (a.r*a.r)) {
-        a.hp -= 10;
-        bullets.splice(j,1);
-        if (a.hp <= 0) {
-          asteroids.splice(i,1);
-          break;
-        }
+  // bullet collision
+  for(let j=bullets.length-1;j>=0;j--){
+    const b=bullets[j];
+    if((a.x-b.x)**2+(a.y-b.y)**2<a.r*a.r){
+      a.hp-=player.dmg;
+      bullets.splice(j,1);
+      if(a.hp<=0){
+        asteroids.splice(i,1);
+        player.credits+=5;
+        break;
       }
     }
   }
 
-  // Maintain wave
-  if (asteroids.length === 0) {
-    state.wave++;
-    startWave();
+  // player collision
+  if((a.x-player.x)**2+(a.y-player.y)**2<(a.r+15)**2){
+    player.hp-=5;
+    asteroids.splice(i,1);
+    if(player.hp<=0){
+      player.hp=100;
+      player.credits*=0.5;
+      asteroids.length=0;
+      startWave();
+    }
   }
+ }
+
+ // new wave
+ if(asteroids.length===0){wave++;startWave()}
+
+ // planets (FIXED: prevent infinite pause loop)
+ let nearPlanet = false;
+ for(const p of planets){
+  const d=Math.hypot(player.x-p.x,player.y-p.y);
+  if(d<p.r+40){
+    nearPlanet = true;
+    if(!paused){
+      openShop();
+    }
+    break;
+  }
+ }
+
+ // only allow reopening after leaving planet
+ if(!nearPlanet && paused){
+   closeShop();
+ }
+ }
+
+ // UI
+ hpEl.textContent=Math.round(player.hp);
+ shieldEl.textContent=Math.round(player.shield);
+ creditsEl.textContent=Math.round(player.credits);
 }
 
-// =========================
-// RENDER
-// =========================
-function render() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0,0,W,H);
+function render(){
+ ctx.fillStyle="#060a16";
+ ctx.fillRect(0,0,W,H);
 
-  const cx = W/2;
-  const cy = H/2;
+ const cx=W/2,cy=H/2;
 
-  // Player
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(player.angle);
-  ctx.fillStyle = "white";
-  ctx.beginPath();
-  ctx.moveTo(15,0);
-  ctx.lineTo(-10,-8);
-  ctx.lineTo(-10,8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+ // planets
+ ctx.fillStyle="blue";
+ for(const p of planets){
+  const x=cx+(p.x-player.x);
+  const y=cy+(p.y-player.y);
+  ctx.beginPath();ctx.arc(x,y,p.r,0,Math.PI*2);ctx.fill();
+ }
 
-  // Bullets
-  ctx.strokeStyle = "cyan";
-  for (const b of bullets) {
-    const x = cx + (b.x - player.x);
-    const y = cy + (b.y - player.y);
-    ctx.beginPath();
-    ctx.moveTo(x,y);
-    ctx.lineTo(x - Math.cos(b.angle)*5, y - Math.sin(b.angle)*5);
-    ctx.stroke();
-  }
+ // asteroids
+ ctx.fillStyle="gray";
+ for(const a of asteroids){
+  const x=cx+(a.x-player.x);
+  const y=cy+(a.y-player.y);
+  ctx.beginPath();ctx.arc(x,y,a.r,0,Math.PI*2);ctx.fill();
+ }
 
-  // Asteroids
-  ctx.fillStyle = "gray";
-  for (const a of asteroids) {
-    const x = cx + (a.x - player.x);
-    const y = cy + (a.y - player.y);
-    ctx.beginPath();
-    ctx.arc(x,y,a.r,0,Math.PI*2);
-    ctx.fill();
-  }
+ // bullets
+ ctx.strokeStyle="cyan";
+ for(const b of bullets){
+  const x=cx+(b.x-player.x);
+  const y=cy+(b.y-player.y);
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-Math.cos(b.angle)*6,y-Math.sin(b.angle)*6);ctx.stroke();
+ }
+
+ // player
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(player.angle);
+ ctx.fillStyle="white";
+ ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-10,-8);ctx.lineTo(-10,8);ctx.closePath();ctx.fill();
+ ctx.restore();
 }
 
-// =========================
-// LOOP
-// =========================
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min(0.033,(now-last)/1000);
-  last = now;
-
-  update(dt);
-  render();
-
-  requestAnimationFrame(loop);
+let last=performance.now();
+function loop(now){
+ const dt=Math.min(0.033,(now-last)/1000);
+ last=now;
+ update(dt);
+ render();
+ requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 </script>
