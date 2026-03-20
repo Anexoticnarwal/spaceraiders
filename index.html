@@ -3,122 +3,161 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Star Drift: Fixed & Polished</title>
+<title>Star Drift: Simplified</title>
 <style>
 :root { --neon: #00f2ff; --warn: #ff3366; --bg: #020406; }
 body, html { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background: var(--bg); color: #fff; font-family: 'Courier New', monospace; touch-action: none; }
 canvas { display: block; }
 
-/* Overlays */
+/* ONE MENU SYSTEM */
 .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,5,10,0.95); z-index: 100; backdrop-filter: blur(10px); }
-.card { background: #0a0f1e; padding: 25px; border: 2px solid var(--neon); width: 320px; text-align: center; }
+.card { background: #0a0f1e; padding: 25px; border: 2px solid var(--neon); width: 340px; text-align: center; max-height: 90vh; overflow-y: auto; }
 .active { display: flex; }
-button { background: var(--neon); color: #000; border: none; padding: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; width: 100%; margin-top: 15px; }
 
-/* HUD */
+.guide { text-align: left; font-size: 11px; color: #aaa; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; margin: 15px 0; }
+.shop-item { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 8px; border: 1px solid var(--neon); font-size: 11px; }
+
+button { background: var(--neon); color: #000; border: none; padding: 12px; font-weight: bold; cursor: pointer; border-radius: 4px; width: 100%; }
+button:active { transform: scale(0.98); }
+button:disabled { background: #333; color: #777; }
+
+/* HUD & Controls */
 .hud { position: fixed; top: 15px; left: 15px; right: 15px; display: none; justify-content: space-between; pointer-events: none; }
 .panel { background: rgba(0,20,40,0.8); padding: 10px; border: 1px solid var(--neon); font-size: 12px; }
-
-/* Controls */
 .controls { position: fixed; bottom: 30px; left: 20px; right: 20px; display: none; justify-content: space-between; }
-.stick { width: 100px; height: 100px; border-radius: 50%; border: 1px solid var(--neon); position: relative; background: rgba(255,255,255,0.05); }
+.stick { width: 100px; height: 100px; border-radius: 50%; border: 1px solid var(--neon); position: relative; }
 .nub { width: 40px; height: 40px; border-radius: 50%; background: var(--neon); position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); }
 .btn { width: 70px; height: 70px; border-radius: 50%; background: var(--warn); display: flex; align-items: center; justify-content: center; font-weight: bold; }
 </style>
 </head>
 <body>
 
-<!-- MAIN MENU -->
-<div id="menu" class="overlay active">
+<!-- THE SINGLE MENU -->
+<div id="mainMenu" class="overlay active">
     <div class="card">
-        <h1 style="color: var(--neon)">STAR DRIFT</h1>
-        <p style="font-size: 11px; color: #aaa">Fly into deep space to find rare ores. Return home (0,0) to upgrade.</p>
-        <button onclick="startGame()">ENTER SPACE</button>
+        <h1 style="color: var(--neon); margin: 0;">STAR DRIFT</h1>
+        
+        <div class="guide">
+            <b>HOW TO PLAY:</b><br>
+            • Drag the <b>Joystick</b> to fly.<br>
+            • Stop near <b>Planets</b> to mine resources.<br>
+            • Avoid <b>Asteroids</b>! They damage your hull.<br>
+            • Return to <b>Home (0,0)</b> to buy upgrades.
+        </div>
+
+        <div id="shopSection">
+            <p style="font-size: 12px; color: var(--neon);">SHOP (VAULT: <span id="vInfo">0</span>)</p>
+            <div class="shop-item"><span>Engines (Speed)</span> <button style="width:auto; padding:5px 10px;" onclick="buy('spd')">10c</button></div>
+            <div class="shop-item"><span>Hull (Health)</span> <button style="width:auto; padding:5px 10px;" onclick="buy('hp')">5c</button></div>
+        </div>
+
+        <button onclick="enterSpace()" style="margin-top: 20px; background: var(--warn); color: #fff;">ENTER SPACE</button>
     </div>
 </div>
 
 <canvas id="game"></canvas>
 
-<div class="hud" id="hud">
-    <div class="panel">HP: <span id="hp">100</span> | FUEL: <span id="f">100</span></div>
-    <div class="panel">CREDITS: <span id="cr">0</span></div>
+<div class="hud" id="gameHUD">
+    <div class="panel">HP: <span id="hp">100</span> | CREDITS: <span id="cr">0</span></div>
+    <div class="panel">DIST: <span id="dist">0</span>km</div>
 </div>
 
-<div class="controls" id="ctrls">
+<div class="controls" id="gameCtrls">
     <div class="stick" id="stk"><div class="nub" id="nub"></div></div>
     <div class="btn" id="fireBtn">FIRE</div>
 </div>
 
 <script>
 const cvs = document.getElementById("game"), ctx = cvs.getContext("2d");
-let W, H, lastTime = 0, gameStarted = false;
+let W, H, lastT = 0, playing = false;
 
-const ship = { x:0, y:0, vx:0, vy:0, a:0, hp:100, f:100, cr:0, mass:0, speed:600 };
-const ents = { pla:[], bul:[], stars:[] }; // 'pla' synchronized across all functions
+// Balanced Stats
+const ship = { x:0, y:0, vx:0, vy:0, a:0, hp:100, cr:0, speed:350 };
+const ents = { pla:[], ast:[], bul:[] };
 
-function resize(){ W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
+function resize(){ W=cvs.width=innerWidth; H=cvs.height=innerHeight; }
 window.addEventListener("resize", resize); resize();
 
-function startGame() {
-    document.getElementById("menu").style.display = "none";
-    document.getElementById("hud").style.display = "flex";
-    document.getElementById("ctrls").style.display = "flex";
-    gameStarted = true;
-    init();
+function enterSpace() {
+    document.getElementById("mainMenu").classList.remove("active");
+    document.getElementById("gameHUD").style.display = "flex";
+    document.getElementById("gameCtrls").style.display = "flex";
+    playing = true;
+    if(ents.pla.length === 0) init();
     requestAnimationFrame(loop);
 }
 
 function init() {
-    ents.pla.push({x:0, y:0, r:120, base:true, n:"HOME"});
-    for(let i=0; i<20; i++) {
+    ents.pla.push({x:0, y:0, r:100, home:true});
+    for(let i=0; i<15; i++) {
         ents.pla.push({
-            x: (Math.random()-0.5)*8000, y: (Math.random()-0.5)*8000,
-            r: 50+Math.random()*50, c: `hsl(${Math.random()*360}, 40%, 30%)`,
-            prog: 0, res: "Fe"
+            x: (Math.random()-0.5)*6000, y: (Math.random()-0.5)*6000,
+            r: 50+Math.random()*40, c: `hsl(${Math.random()*360}, 40%, 30%)`, prog: 0
         });
     }
 }
 
-// Touch Handling
+// Mobile/Touch Control
 const stk = document.getElementById("stk"), nub = document.getElementById("nub");
-let joyX=0, joyY=0;
-stk.addEventListener("pointerdown", e => { stk.setPointerCapture(e.pointerId); updateJoy(e); });
-stk.addEventListener("pointermove", e => { if(stk.hasPointerCapture(e.pointerId)) updateJoy(e); });
-stk.addEventListener("pointerup", () => { joyX=0; joyY=0; nub.style.left="50%"; nub.style.top="50%"; });
+let jX=0, jY=0;
+stk.addEventListener("pointerdown", e => { stk.setPointerCapture(e.pointerId); move(e); });
+stk.addEventListener("pointermove", e => { if(stk.hasPointerCapture(e.pointerId)) move(e); });
+stk.addEventListener("pointerup", () => { jX=0; jY=0; nub.style.left="50%"; nub.style.top="50%"; });
 
-function updateJoy(e) {
+function move(e) {
     const r = stk.getBoundingClientRect(), dx = e.clientX-(r.left+r.width/2), dy = e.clientY-(r.top+r.height/2);
     const d = Math.hypot(dx,dy), m = r.width/2;
-    joyX = (d>m ? dx*m/d : dx)/m; joyY = (d>m ? dy*m/d : dy)/m;
-    nub.style.left = (50+joyX*50)+"%"; nub.style.top = (50+joyY*50)+"%";
+    jX = (d>m ? dx*m/d : dx)/m; jY = (d>m ? dy*m/d : dy)/m;
+    nub.style.left = (50+jX*50)+"%"; nub.style.top = (50+jY*50)+"%";
+}
+
+function buy(type) {
+    if(ship.cr >= (type==='spd'?10:5)) {
+        if(type==='spd') { ship.speed += 50; ship.cr -= 10; }
+        else { ship.hp = 100; ship.cr -= 5; }
+        document.getElementById("vInfo").innerText = ship.cr;
+    }
 }
 
 function loop(now) {
-    const dt = (now - (lastTime || now)) / 1000; lastTime = now;
-    if(gameStarted) {
-        update(dt);
-        render();
-    }
+    const dt = (now - (lastT || now)) / 1000; lastT = now;
+    if(playing) { update(dt); render(); }
     requestAnimationFrame(loop);
 }
 
 function update(dt) {
-    ship.vx += joyX * ship.speed * dt; ship.vy += joyY * ship.speed * dt;
-    ship.vx *= 0.95; ship.vy *= 0.95;
+    ship.vx += jX * ship.speed * dt; ship.vy += jY * ship.speed * dt;
+    ship.vx *= 0.94; ship.vy *= 0.94; // Higher friction for control
     ship.x += ship.vx; ship.y += ship.vy;
     if(Math.hypot(ship.vx, ship.vy) > 1) ship.a = Math.atan2(ship.vy, ship.vx);
 
-    // Planet/Mining Logic
+    // Asteroid Spawning (Consistent Pace)
+    if(ents.ast.length < 8) {
+        const ang = Math.random()*Math.PI*2;
+        ents.ast.push({
+            x: ship.x + Math.cos(ang)*800, y: ship.y + Math.sin(ang)*800,
+            vx: (Math.random()-0.5)*100, vy: (Math.random()-0.5)*100, r: 20
+        });
+    }
+
+    // Logic
     ents.pla.forEach(p => {
         const d = Math.hypot(ship.x-p.x, ship.y-p.y);
-        if(d < p.r + 40 && !p.base) {
-            p.prog += dt * 30;
-            if(p.prog >= 100) { ship.cr += 10; p.prog = 0; }
+        if(d < p.r + 40) {
+            if(p.home) { playing = false; document.getElementById("mainMenu").classList.add("active"); document.getElementById("vInfo").innerText = ship.cr; }
+            else { p.prog += dt * 25; if(p.prog >= 100) { ship.cr += 5; p.prog = 0; } }
         }
     });
 
+    ents.ast.forEach((a, i) => {
+        a.x += a.vx * dt; a.y += a.vy * dt;
+        if(Math.hypot(ship.x-a.x, ship.y-a.y) < a.r + 15) { ship.hp -= 10; ents.ast.splice(i,1); }
+    });
+
+    if(ship.hp <= 0) location.reload();
     document.getElementById("hp").innerText = Math.round(ship.hp);
     document.getElementById("cr").innerText = ship.cr;
+    document.getElementById("dist").innerText = Math.floor(Math.hypot(ship.x, ship.y)/10);
 }
 
 function render() {
@@ -126,15 +165,17 @@ function render() {
     const cx = W/2, cy = H/2;
     ents.pla.forEach(p => {
         const dx = cx + p.x - ship.x, dy = cy + p.y - ship.y;
-        ctx.fillStyle = p.base ? "var(--neon)" : p.c;
+        ctx.fillStyle = p.home ? "var(--neon)" : p.c;
         ctx.beginPath(); ctx.arc(dx, dy, p.r, 0, Math.PI*2); ctx.fill();
         if(p.prog > 0) {
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(dx, dy, p.r+10, 0, Math.PI*2*(p.prog/100)); ctx.stroke();
         }
     });
+    ctx.fillStyle = "#555";
+    ents.ast.forEach(a => { ctx.beginPath(); ctx.arc(cx+a.x-ship.x, cy+a.y-ship.y, a.r, 0, Math.PI*2); ctx.fill(); });
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(ship.a);
-    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-12,-10); ctx.lineTo(-12,10); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-12,-10); ctx.lineTo(-12,10); ctx.closePath(); ctx.fill();
     ctx.restore();
 }
 </script>
