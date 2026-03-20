@@ -3,169 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Star Drift Mobile</title>
+    <title>Star Drift: Full Edition</title>
     <style>
-        :root { --neon: #00f2ff; --warn: #ff3366; --bg: #020406; }
+        :root { --neon: #00f2ff; --warn: #ff3366; --shield: #9d33ff; --bg: #020406; --gold: #ffd700; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: sans-serif; }
-        
-        /* THE UI LAYER - Must stay on top */
-        #ui-layer { 
-            position: fixed; inset: 0; z-index: 9999; 
-            display: flex; align-items: center; justify-content: center; 
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
-        }
-        
-        .card { 
-            background: #0a0f1e; border: 2px solid var(--neon); padding: 20px; 
-            width: 90%; max-width: 350px; text-align: center; display: none; 
-        }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', monospace; touch-action: none; position: fixed; }
+
+        /* UI OVERLAY */
+        #ui-layer { position: absolute; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); }
+        .card { background: #0a1425; border: 2px solid var(--neon); padding: 25px; width: 90%; max-width: 340px; text-align: center; display: none; box-shadow: 0 0 30px rgba(0, 242, 255, 0.15); border-radius: 8px; }
         .active { display: block !important; }
 
-        h1 { color: var(--neon); margin: 0 0 20px 0; font-size: 24px; }
+        /* SHOP STYLING */
+        .shop-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; padding: 10px; background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.2); border-radius: 4px; }
+        .shop-info { text-align: left; flex-grow: 1; }
+        .shop-info b { display: block; font-size: 13px; color: #fff; }
+        .shop-info span { font-size: 10px; color: var(--neon); }
+
+        button { background: var(--neon); color: #000; border: none; padding: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
+        button:active { transform: scale(0.95); background: #fff; }
+        button.buy-btn { width: 80px; font-size: 11px; }
+        button.sec { background: none; border: 1px solid var(--neon); color: var(--neon); width: 100%; margin-top: 10px; }
+
+        /* HUD & CONTROLS */
+        #hud { position: absolute; top: 15px; width: 100%; padding: 0 20px; display: none; justify-content: space-between; color: var(--neon); font-size: 12px; z-index: 500; pointer-events: none; }
+        .ctrls { position: absolute; bottom: 40px; width: 100%; padding: 0 30px; display: none; z-index: 500; justify-content: space-between; align-items: flex-end; }
+        .stk-base { width: 110px; height: 110px; background: rgba(255,255,255,0.05); border: 2px solid rgba(0,242,255,0.3); border-radius: 50%; position: relative; }
+        .stk-nub { width: 44px; height: 44px; background: var(--neon); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 15px var(--neon); }
+        #fire { width: 85px; height: 85px; background: var(--warn); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; box-shadow: 0 0 20px rgba(255,51,102,0.4); }
         
-        /* BIG BUTTONS FOR MOBILE */
-        button { 
-            display: block; width: 100%; padding: 18px; margin: 10px 0;
-            background: var(--neon); color: #000; border: none;
-            font-weight: bold; font-size: 16px; border-radius: 8px;
-            cursor: pointer; touch-action: manipulation;
-        }
-        button:active { background: #fff; transform: scale(0.98); }
-        .sec { background: transparent; border: 1px solid var(--neon); color: var(--neon); }
-
-        canvas { position: absolute; top: 0; left: 0; z-index: 1; display: block; }
-
-        #hud { position: fixed; top: 10px; left: 10px; right: 10px; z-index: 100; display: none; color: #fff; font-size: 12px; pointer-events: none; }
-        .ctrls { position: fixed; bottom: 30px; width: 100%; z-index: 100; display: none; padding: 0 20px; }
-        .stick { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; position: relative; }
-        .nub { width: 40px; height: 40px; background: var(--neon); border-radius: 50%; position: absolute; top: 30px; left: 30px; }
-        #fire { width: 80px; height: 80px; background: var(--warn); border-radius: 50%; float: right; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div id="m-menu" class="card active">
-        <h1>STAR DRIFT</h1>
-        <button onclick="show('m-shop')">SHOP</button>
-        <button onclick="show('m-guide')" class="sec">GUIDE</button>
-        <button onclick="start()" style="background:var(--warn); color:#fff; margin-top:20px;">ENTER SPACE</button>
+        <h1 style="color:var(--neon); margin-top:0;">STAR DRIFT</h1>
+        <p style="font-size:12px; color:var(--gold);">CREDITS: <span id="m-cr">0</span></p>
+        <button onclick="show('m-shop')" style="width:100%">HANGAR SHOP</button>
+        <button onclick="show('m-guide')" class="sec">FLIGHT MANUAL</button>
+        <button onclick="start()" style="background:var(--warn); color:white; width:100%; margin-top:20px;">LAUNCH SHIP</button>
     </div>
 
     <div id="m-shop" class="card">
-        <h1>HANGAR SHOP</h1>
-        <p id="v-status" style="color:#aaa; font-size:12px;">Vault: Empty</p>
-        <button onclick="buy('hp')" class="sec">UPGRADE HULL (10 Ti)</button>
-        <button onclick="buy('fuel')" class="sec">UPGRADE FUEL (20 H)</button>
-        <button onclick="show('m-menu')">BACK</button>
+        <h2 style="color:var(--neon); margin-top:0;">HANGAR</h2>
+        <div id="v-list" style="font-size:10px; color:#888; margin-bottom:15px; min-height:14px;">Vault: Empty</div>
+        
+        <div class="shop-row">
+            <div class="shop-info"><b>REINFORCE HULL</b><span>+100 Max HP</span></div>
+            <button class="buy-btn" onclick="buy('hp')">10 Ti</button>
+        </div>
+        <div class="shop-row">
+            <div class="shop-info"><b>FUEL CELLS</b><span>+100 Max Fuel</span></div>
+            <button class="buy-btn" onclick="buy('fuel')">20 H</button>
+        </div>
+        <div class="shop-row">
+            <div class="shop-info"><b>SHIELD GEN</b><span>Refill Shield</span></div>
+            <button class="buy-btn" onclick="buy('sh')">10 Pb</button>
+        </div>
+        <div class="shop-row">
+            <div class="shop-info"><b>PLASMA COIL</b><span>+1 Damage</span></div>
+            <button class="buy-btn" onclick="buy('dmg')">15 Fe</button>
+        </div>
+
+        <button onclick="show('m-menu')" class="sec">BACK TO HUB</button>
+        <button onclick="wipeData()" style="background:none; color:var(--warn); font-size:9px; margin-top:15px; border:none;">WIPE ALL DATA</button>
     </div>
 
     <div id="m-guide" class="card">
-        <h1>HOW TO PLAY</h1>
-        <p style="color:#ccc; font-size:14px; text-align:left;">
-            1. Use Left Stick to move.<br>
-            2. Fly near planets to mine.<br>
-            3. Return to [0,0] (Cyan) to sell.<br>
-            4. Don't run out of fuel!
+        <h2 style="color:var(--neon)">MANUAL</h2>
+        <p style="color:#ccc; font-size:12px; text-align:left; line-height:1.6;">
+            • <b>MINING:</b> Stop or fly very slowly near planets.<br>
+            • <b>WEIGHT:</b> More cargo = Slower ship.<br>
+            • <b>DOCKING:</b> Return to the Cyan Station [0,0] to save and sell.<br>
+            • <b>SCAN:</b> Hold FIRE button to scan for nearby planets.
         </p>
-        <button onclick="show('m-menu')">GOT IT</button>
+        <button onclick="show('m-menu')">UNDERSTOOD</button>
     </div>
 </div>
 
 <div id="hud">
-    FUEL: <span id="f-val">100</span>% | CR: <span id="c-val">0</span>
+    <div>HULL: <span id="h-ui">100</span>% | FUEL: <span id="f-ui">100</span>%</div>
+    <div>CR: <span id="c-ui">0</span></div>
 </div>
 
-<div class="ctrls" id="ui-ctrls">
-    <div style="float:left;" id="stk-area" class="stick"><div id="nub" class="nub"></div></div>
+<div class="ctrls" id="game-ui" style="display:none;">
+    <div class="stk-base" id="stk"><div class="stk-nub" id="nub"></div></div>
     <div id="fire">FIRE</div>
 </div>
 
-<canvas id="g"></canvas>
+<canvas id="canvas"></canvas>
 
 <script>
-const canvas = document.getElementById('g'), ctx = canvas.getContext('2d');
+const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
 let w, h, playing = false, lastTime = 0;
-let ship = { x:0, y:0, vx:0, vy:0, fuel:100, cr:0, vault:{H:0, Ti:0} };
 
-// UI TOGGLES
-window.show = function(id) {
+// SHIP STATE (Now with persistence)
+let ship = { 
+    x:0, y:0, vx:0, vy:0, a:0, 
+    hp:100, mhp:100, 
+    sh:0, msh:100, 
+    f:100, mf:100, 
+    cr:0, mass:0, max:50, 
+    inv:{}, vault:{}, 
+    dmg:1 
+};
+
+// PERSISTENCE
+function save() { localStorage.setItem('sd_save', JSON.stringify({cr:ship.cr, mhp:ship.mhp, mf:ship.mf, dmg:ship.dmg, vault:ship.vault})); }
+function load() {
+    const s = localStorage.getItem('sd_save');
+    if(s){
+        const d = JSON.parse(s);
+        ship.cr=d.cr; ship.mhp=d.mhp; ship.mf=d.mf; ship.dmg=d.dmg; ship.vault=d.vault;
+        ship.hp=ship.mhp; ship.f=ship.mf;
+    }
+}
+window.wipeData = () => { if(confirm("Clear all?")){ localStorage.removeItem('sd_save'); location.reload(); }};
+
+// UI CORE
+window.show = (id) => {
     document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    updateUI();
 };
 
-window.start = function() {
+function updateUI() {
+    const v = Object.entries(ship.vault).filter(x=>x[1]>0).map(x=>`${x[0]}:${x[1]}`).join(" | ");
+    document.getElementById('v-list').innerText = "Vault: " + (v || "Empty");
+    document.getElementById('m-cr').innerText = Math.floor(ship.cr);
+    document.getElementById('c-ui').innerText = Math.floor(ship.cr);
+}
+
+window.start = () => {
     document.getElementById('ui-layer').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
-    document.getElementById('ui-ctrls').style.display = 'block';
+    document.getElementById('game-ui').style.display = 'flex';
     playing = true;
-    animate();
+    requestAnimationFrame(animate);
 };
 
-window.buy = function(type) {
-    alert("Not enough resources in vault!");
+window.buy = (type) => {
+    let ok = false;
+    if(type==='hp' && ship.vault.Ti>=10){ ship.mhp+=100; ship.vault.Ti-=10; ok=true; }
+    else if(type==='fuel' && ship.vault.H>=20){ ship.mf+=100; ship.vault.H-=20; ok=true; }
+    else if(type==='sh' && ship.vault.Pb>=10){ ship.sh=ship.msh; ship.vault.Pb-=10; ok=true; }
+    else if(type==='dmg' && ship.vault.Fe>=15){ ship.dmg+=1; ship.vault.Fe-=15; ok=true; }
+    
+    if(ok){ ship.hp=ship.mhp; ship.f=ship.mf; updateUI(); save(); }
+    else { alert("Insufficient Elements in Vault!"); }
 };
 
-// INITIALIZE
-function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-// SIMPLE MOVEMENT FOR TESTING
+// TOUCH CONTROLS
+const stk = document.getElementById('stk'), nub = document.getElementById('nub');
 let jX = 0, jY = 0;
-const stickArea = document.getElementById('stk-area');
-const nub = document.getElementById('nub');
 
-stickArea.addEventListener('pointerdown', move);
-stickArea.addEventListener('pointermove', move);
-stickArea.addEventListener('pointerup', () => { jX = 0; jY = 0; nub.style.left = '30px'; nub.style.top = '30px'; });
-
-function move(e) {
-    const rect = stickArea.getBoundingClientRect();
-    const x = e.clientX - rect.left - 50;
-    const y = e.clientY - rect.top - 50;
-    const dist = Math.hypot(x, y);
-    const max = 40;
-    jX = (dist > max ? x * max / dist : x) / max;
-    jY = (dist > max ? y * max / dist : y) / max;
-    nub.style.left = (30 + jX * 30) + 'px';
-    nub.style.top = (30 + jY * 30) + 'px';
+function handleMove(e) {
+    if (!playing) return;
+    e.preventDefault();
+    const t = e.touches ? e.touches[0] : e;
+    const r = stk.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    let dx = t.clientX - cx, dy = t.clientY - cy;
+    const dist = Math.hypot(dx, dy), max = r.width/2;
+    if (dist > max) { dx *= max/dist; dy *= max/dist; }
+    jX = dx/max; jY = dy/max;
+    nub.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 }
+
+stk.addEventListener('touchstart', handleMove, {passive:false});
+stk.addEventListener('touchmove', handleMove, {passive:false});
+stk.addEventListener('touchend', () => { jX=jY=0; nub.style.transform='translate(-50%,-50%)'; });
 
 // GAME LOOP
 function animate(t) {
     if(!playing) return;
-    const dt = (t - lastTime) / 1000 || 0;
+    const dt = Math.min(0.1, (t - lastTime) / 1000 || 0);
     lastTime = t;
 
-    // Logic
-    ship.vx += jX * 10; ship.vy += jY * 10;
-    ship.vx *= 0.9; ship.vy *= 0.9;
+    ship.vx += jX * 15 * dt * 60; 
+    ship.vy += jY * 15 * dt * 60;
+    ship.vx *= 0.92; ship.vy *= 0.92;
     ship.x += ship.vx; ship.y += ship.vy;
-    ship.fuel -= 0.05;
+    ship.f -= 0.05 * (1 + Math.hypot(ship.x, ship.y)/5000);
 
-    document.getElementById('f-val').innerText = Math.floor(ship.fuel);
+    // Docking logic at 0,0
+    if(Math.hypot(ship.x, ship.y) < 100 && Math.hypot(ship.vx, ship.vy) < 2) {
+        for(let k in ship.inv){ 
+            ship.cr += ship.inv[k] * 10; // Basic value
+            ship.vault[k] = (ship.vault[k]||0) + ship.inv[k];
+            ship.inv[k] = 0;
+        }
+        ship.mass = 0; ship.hp = ship.mhp; ship.f = ship.mf;
+        save();
+        playing = false;
+        document.getElementById('ui-layer').style.display='flex';
+        show('m-menu');
+    }
 
-    // Draw
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,w,h);
-    
-    ctx.save();
-    ctx.translate(w/2, h/2);
-    // Draw Mothership
-    ctx.fillStyle = '#00f2ff';
-    ctx.beginPath(); ctx.arc(-ship.x, -ship.y, 100, 0, Math.PI*2); ctx.fill();
-    // Draw Ship
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(-10, -10, 20, 20);
+    // HUD Update
+    document.getElementById('h-ui').innerText = Math.max(0, Math.floor(ship.hp/ship.mhp*100));
+    document.getElementById('f-ui').innerText = Math.max(0, Math.floor(ship.f/ship.mf*100));
+
+    // Render
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+    ctx.save(); ctx.translate(w/2, h/2);
+    // Mothership
+    ctx.fillStyle = '#00f2ff'; ctx.beginPath(); ctx.arc(-ship.x, -ship.y, 80, 0, Math.PI*2); ctx.fill();
+    // Player
+    ctx.fillStyle = '#fff'; ctx.fillRect(-8, -8, 16, 16);
     ctx.restore();
 
     requestAnimationFrame(animate);
 }
+
+function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+load();
+updateUI();
 </script>
 </body>
 </html>
