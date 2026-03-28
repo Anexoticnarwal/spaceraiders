@@ -3,41 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Star Drift: Structured</title>
+    <title>Star Drift: Neon Rebirth</title>
     <style>
-        :root { --neon: #00f2ff; --warn: #ff3366; --bg: #020406; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --neon: #00f2ff; --warn: #ff3366; --gold: #ffcc00; --bg: #020406; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body, html { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
 
         /* --- UI LAYER --- */
         #ui-root {
             position: fixed; inset: 0; z-index: 100;
             display: flex; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.8); pointer-events: auto;
+            background: rgba(0,0,0,0.85); pointer-events: auto;
         }
-
         .menu-card {
-            background: #111; border: 2px solid var(--neon);
-            padding: 30px; width: 320px; border-radius: 12px;
+            background: #0a0e14; border: 2px solid var(--neon);
+            padding: 40px; width: 340px; border-radius: 15px;
             text-align: center; color: var(--neon); display: none;
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
         }
         .active { display: block; }
+        h1 { font-size: 2.5rem; letter-spacing: 4px; text-shadow: 0 0 10px var(--neon); }
 
         button {
-            width: 100%; padding: 15px; margin: 10px 0;
+            width: 100%; padding: 16px; margin: 12px 0;
             background: var(--neon); border: none; font-weight: bold;
-            border-radius: 6px; cursor: pointer; text-transform: uppercase;
+            border-radius: 8px; cursor: pointer; text-transform: uppercase;
+            transition: 0.2s;
         }
-        button:active { transform: scale(0.98); opacity: 0.8; }
-        .btn-sec { background: transparent; border: 1px solid var(--neon); color: var(--neon); }
+        button:active { transform: scale(0.95); filter: brightness(1.2); }
+        .btn-sec { background: transparent; border: 2px solid var(--neon); color: var(--neon); }
 
-        /* --- GAME OVERLAY --- */
-        #hud { position: fixed; top: 20px; width: 100%; padding: 0 20px; display: none; color: #fff; z-index: 50; pointer-events: none; }
-        #controls { position: fixed; bottom: 40px; width: 100%; padding: 0 30px; display: none; z-index: 50; }
+        /* --- GAME OVERLAYS --- */
+        #hud { position: fixed; top: 20px; width: 100%; padding: 0 25px; display: none; color: #fff; z-index: 50; pointer-events: none; font-weight: bold; }
+        #controls { position: fixed; bottom: 40px; width: 100%; padding: 0 40px; display: none; z-index: 50; }
         
-        .stick { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; position: relative; border: 2px solid rgba(0,242,255,0.2); }
-        .nub { width: 40px; height: 40px; background: var(--neon); border-radius: 50%; position: absolute; top: 30px; left: 30px; box-shadow: 0 0 15px var(--neon); }
-        #fire { width: 80px; height: 80px; background: var(--warn); border-radius: 50%; float: right; }
+        .stick { width: 110px; height: 110px; background: rgba(0,242,255,0.05); border-radius: 50%; position: relative; border: 2px solid rgba(0,242,255,0.15); }
+        .nub { width: 44px; height: 44px; background: var(--neon); border-radius: 50%; position: absolute; top: 31px; left: 31px; box-shadow: 0 0 20px var(--neon); pointer-events: none; }
+        #fire { width: 90px; height: 90px; background: rgba(255,51,102,0.2); border: 3px solid var(--warn); border-radius: 50%; float: right; box-shadow: 0 0 15px var(--warn); }
+        #fire:active { background: var(--warn); box-shadow: 0 0 30px var(--warn); }
 
         canvas { position: absolute; inset: 0; z-index: 1; }
     </style>
@@ -47,25 +50,24 @@
     <div id="ui-root">
         <div id="screen-main" class="menu-card active">
             <h1>STAR DRIFT</h1>
-            <p style="margin: 15px 0; color: #888;">Deep Space Mining Sim</p>
-            <button id="btn-start">Launch Mission</button>
-            <button id="btn-to-shop" class="btn-sec">Hangar Shop</button>
+            <p style="margin: 15px 0; color: #5a7b8c; font-size: 14px;">NEON MINING OPERATIONS</p>
+            <button id="btn-start">Initiate Launch</button>
+            <button id="btn-to-shop" class="btn-sec">Hangar & Upgrades</button>
         </div>
 
         <div id="screen-shop" class="menu-card">
             <h1>HANGAR</h1>
-            <div style="margin: 20px 0; font-size: 13px;">
-                <p>Vault: <span id="vault-status">Empty</span></p>
-                <button class="btn-buy" data-type="hp">Upgrade Hull</button>
-                <button class="btn-buy" data-type="fuel">Expand Fuel</button>
+            <div style="margin: 25px 0; color: #fff;">
+                <p>Vault: <span id="vault-status" style="color:var(--gold)">0 CR</span></p>
+                <button class="btn-sec" style="font-size:12px; margin-top:15px;">Upgrades Offline (Demo)</button>
             </div>
-            <button id="btn-back" class="btn-sec">Back to Hub</button>
+            <button id="btn-back" class="btn-sec">Return to Hub</button>
         </div>
     </div>
 
     <div id="hud">
-        <span>FUEL: <span id="stat-fuel">100</span>%</span>
-        <span style="float:right;">CR: <span id="stat-cr">0</span></span>
+        <span>ENERGY: <span id="stat-fuel">100</span>%</span>
+        <span style="float:right;">VAULT: <span id="stat-cr">0</span> CR</span>
     </div>
 
     <div id="controls">
@@ -76,16 +78,31 @@
     <canvas id="stage"></canvas>
 
 <script>
-/** * STAR DRIFT - STRUCTURED BUILD
+/** * STAR DRIFT - NEON REBIRTH
  * ----------------------------
  */
 
-// 1. GAME STATE & CONSTANTS
+// 1. DATA & OBJECTS
 const STATE = { MENU: 0, SHOP: 1, PLAYING: 2 };
 let currentMode = STATE.MENU;
 
-const ship = { x:0, y:0, vx:0, vy:0, fuel:100, cr:0, vault:{} };
+const ship = { x:0, y:0, vx:0, vy:0, angle:0, fuel:100, cr:0, mining: false };
 const input = { x:0, y:0 };
+const camera = { x:0, y:0 };
+
+const stars = Array.from({length: 120}, () => ({ 
+    x: Math.random() * 4000 - 2000, 
+    y: Math.random() * 4000 - 2000, 
+    z: Math.random() * 0.6 + 0.1 
+}));
+
+const asteroids = Array.from({length: 25}, () => ({
+    x: (Math.random() - 0.5) * 3500,
+    y: (Math.random() - 0.5) * 3500,
+    size: 30 + Math.random() * 50,
+    color: `hsl(${180 + Math.random() * 60}, 80%, 70%)`,
+    ore: 100
+}));
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
@@ -103,18 +120,19 @@ function setScreen(mode) {
     if (mode === STATE.SHOP) document.getElementById('screen-shop').classList.add('active');
 }
 
-// 3. INPUT ENGINE
+// 3. INPUT HANDLING
 const stick = document.getElementById('stk-base');
 const nub = document.getElementById('stk-nub');
+const fireBtn = document.getElementById('fire');
 
 function handleTouch(e) {
     if (currentMode !== STATE.PLAYING) return;
     e.preventDefault();
-    const t = e.touches ? e.touches[0] : e;
+    const t = (e.touches && e.touches[0]) || e;
     const r = stick.getBoundingClientRect();
     const cx = r.left + r.width/2, cy = r.top + r.height/2;
     let dx = t.clientX - cx, dy = t.clientY - cy;
-    const dist = Math.sqrt(dx*dx + dy*dy), max = 30;
+    const dist = Math.sqrt(dx*dx + dy*dy), max = 35;
     
     if (dist > max) { dx *= max/dist; dy *= max/dist; }
     input.x = dx/max; input.y = dy/max;
@@ -128,40 +146,119 @@ stick.addEventListener('touchend', () => {
     nub.style.transform = `translate(0px, 0px)`;
 });
 
-// 4. GAME ENGINE
+fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); ship.mining = true; });
+fireBtn.addEventListener('touchend', () => ship.mining = false);
+// PC fallback
+fireBtn.addEventListener('mousedown', () => ship.mining = true);
+window.addEventListener('mouseup', () => ship.mining = false);
+
+// 4. GAME LOGIC
 function update(dt) {
     if (currentMode !== STATE.PLAYING) return;
 
-    ship.vx += input.x * 0.5;
-    ship.vy += input.y * 0.5;
-    ship.vx *= 0.94; ship.vy *= 0.94;
+    // Movement
+    ship.vx += input.x * 0.7;
+    ship.vy += input.y * 0.7;
+    ship.vx *= 0.95; ship.vy *= 0.95;
     ship.x += ship.vx; ship.y += ship.vy;
+    if (Math.abs(ship.vx) > 0.1) ship.angle = Math.atan2(ship.vy, ship.vx);
+
     ship.fuel -= 0.02;
+    if (ship.fuel <= 0) { 
+        alert("Emergency Shutdown: Out of Fuel!"); 
+        resetShip(); 
+        setScreen(STATE.MENU); 
+    }
+
+    // Mining Interaction
+    if (ship.mining) {
+        asteroids.forEach(a => {
+            const dx = a.x - ship.x, dy = a.y - ship.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < a.size + 100) {
+                ship.cr += 1;
+                a.ore -= 0.5;
+                ship.fuel -= 0.05; // Mining costs energy
+            }
+        });
+    }
+
+    // Docking at Center Hub
+    if (Math.sqrt(ship.x*ship.x + ship.y*ship.y) < 80 && Math.abs(ship.vx) < 1.5) {
+        if (ship.cr > 0) alert(`Docked! Deposited ${Math.floor(ship.cr)} credits.`);
+        ship.fuel = 100;
+        ship.cr = 0;
+        setScreen(STATE.MENU);
+    }
 
     document.getElementById('stat-fuel').innerText = Math.floor(ship.fuel);
-
-    // Docking check
-    if (Math.sqrt(ship.x*ship.x + ship.y*ship.y) < 50 && Math.abs(ship.vx) < 1) {
-        setScreen(STATE.MENU);
-        ship.fuel = 100;
-    }
+    document.getElementById('stat-cr').innerText = Math.floor(ship.cr);
 }
 
+function resetShip() {
+    ship.x = 0; ship.y = 0; ship.vx = 0; ship.vy = 0; ship.fuel = 100; ship.cr = 0;
+}
+
+// 5. GRAPHICS ENGINE
 function render() {
-    ctx.fillStyle = "#000";
+    ctx.fillStyle = "#020406";
     ctx.fillRect(0,0,w,h);
 
     if (currentMode === STATE.PLAYING) {
+        camera.x += (ship.x - camera.x) * 0.1;
+        camera.y += (ship.y - camera.y) * 0.1;
+
         ctx.save();
-        ctx.translate(w/2, h/2);
-        // Mothership
-        ctx.fillStyle = "#00f2ff";
-        ctx.beginPath(); ctx.arc(-ship.x, -ship.y, 60, 0, Math.PI*2); ctx.fill();
-        // Player
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(-10, -10, 20, 20);
+        ctx.translate(w/2 - camera.x, h/2 - camera.y);
+
+        // Parallax Stars
+        stars.forEach(s => {
+            ctx.fillStyle = `rgba(255,255,255,${s.z})`;
+            ctx.fillRect(s.x + camera.x*(1-s.z), s.y + camera.y*(1-s.z), 2, 2);
+        });
+
+        // Asteroids
+        asteroids.forEach(a => {
+            if (a.ore <= 0) return;
+            ctx.shadowBlur = 15; ctx.shadowColor = a.color;
+            ctx.strokeStyle = a.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(a.x, a.y, a.size, 0, Math.PI*2); ctx.stroke();
+            
+            // Draw Mining Beam
+            if (ship.mining) {
+                const dx = a.x - ship.x, dy = a.y - ship.y;
+                if (Math.sqrt(dx*dx+dy*dy) < a.size + 100) {
+                    ctx.shadowColor = "#ff3366";
+                    ctx.strokeStyle = "#ff3366";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.moveTo(ship.x, ship.y); ctx.lineTo(a.x, a.y); ctx.stroke();
+                }
+            }
+        });
+
+        // Mothership Hub
+        ctx.shadowBlur = 25; ctx.shadowColor = "#00f2ff";
+        ctx.strokeStyle = "#00f2ff";
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(0, 0, 70, 0, Math.PI*2); ctx.stroke();
+        ctx.globalAlpha = 0.1; ctx.fillStyle = "#00f2ff"; ctx.fill(); ctx.globalAlpha = 1;
+
+        // Player Ship
+        ctx.save();
+        ctx.translate(ship.x, ship.y);
+        ctx.rotate(ship.angle);
+        ctx.shadowBlur = 15; ctx.shadowColor = "#fff";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(18, 0); ctx.lineTo(-12, -10); ctx.lineTo(-8, 0); ctx.lineTo(-12, 10);
+        ctx.closePath(); ctx.stroke();
+        ctx.restore();
+
         ctx.restore();
     }
+    ctx.shadowBlur = 0; // Performance reset
 }
 
 function loop(t) {
@@ -172,14 +269,13 @@ function loop(t) {
     requestAnimationFrame(loop);
 }
 
-// 5. INITIALIZATION & EVENTS
+// 6. INIT
 window.addEventListener('resize', () => {
     w = canvas.width = window.innerWidth;
     h = canvas.height = window.innerHeight;
 });
 window.dispatchEvent(new Event('resize'));
 
-// Button Event Binding
 document.getElementById('btn-start').onclick = () => setScreen(STATE.PLAYING);
 document.getElementById('btn-to-shop').onclick = () => setScreen(STATE.SHOP);
 document.getElementById('btn-back').onclick = () => setScreen(STATE.MENU);
