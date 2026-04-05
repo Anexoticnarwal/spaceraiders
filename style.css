@@ -1,5 +1,61 @@
+/* CSS for the game interface, menus, and HUD elements */
+
+body {
+    background-color: #1c1c1c;
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Menu styles */
+.menu {
+    background-color: #333333;
+    padding: 10px;
+    border-radius: 5px;
+}
+.menu-item {
+    padding: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.menu-item:hover {
+    background-color: #555555;
+}
+
+/* HUD styles */
+.hud {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 15px;
+    border-radius: 5px;
+}
+.hud-item {
+    margin: 5px 0;
+}
+
+/* Game interface styles */
+.game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+}
+
+/* Canvas styles */
+canvas {
+    max-width: 100%;
+    height: auto;
+    border: 2px solid #4CAF50;
+    display: block;
+}
+
+/* Mobile control button styles */
 .mobile-button {
-    background-color: #4CAF50; /* Green background */
+    background-color: #4CAF50;
     border: none;
     color: white;
     padding: 15px 32px;
@@ -11,13 +67,50 @@
     cursor: pointer;
     border-radius: 12px;
     touch-action: manipulation;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
 }
 
-.canvas {
-    width: 100%;
-    height: auto;
+.mobile-button:active {
+    background-color: #45a049;
+    transform: scale(0.95);
+}
+
+.mobile-button:hover {
+    background-color: #45a049;
 }
 
 .mobile-control {
-    user-select: none; /* Prevent text selection */
+    user-select: none;
+}
+
+/* Responsive design for smaller screens */
+@media only screen and (max-width: 768px) {
+    canvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    .mobile-button {
+        padding: 12px 24px;
+        font-size: 14px;
+        margin: 3px 1px;
+    }
+}
+
+@media only screen and (max-width: 480px) {
+    .game-container {
+        height: 60vh;
+    }
+    
+    canvas {
+        width: 100%;
+        height: auto;
+    }
+    
+    .mobile-button {
+        padding: 10px 20px;
+        font-size: 12px;
+        margin: 2px 1px;
+    }
 }
