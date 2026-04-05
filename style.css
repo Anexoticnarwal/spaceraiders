@@ -1,0 +1,43 @@
+/* CSS for the game interface, menus, and HUD elements */
+
+body {
+    background-color: #1c1c1c;
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Menu styles */
+.menu {
+    background-color: #333333;
+    padding: 10px;
+    border-radius: 5px;
+}
+.menu-item {
+    padding: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.menu-item:hover {
+    background-color: #555555;
+}
+
+/* HUD styles */
+.hud {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    padding: 15px;
+    border-radius: 5px;
+}
+.hud-item {
+    margin: 5px 0;
+}
+
+/* Game interface styles */
+.game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
