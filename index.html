@@ -1,1 +1,23 @@
-<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>Asteroid Shooter Game</title>\n    <link rel="stylesheet" href="style.css">\n</head>\n<body>\n    <div id="main-menu">\n        <h1>Asteroid Shooter</h1>\n        <button id="start-btn">Start New Game</button>\n        <button id="load-btn">Load Saved Game</button>\n        <button id="shop-btn">Shop</button>\n    </div>\n    <div id="shop" style="display:none;">\n        <h2>Shop</h2>\n        <h3>Ship Upgrades</h3>\n        <ul>\n            <li>Speed Upgrade</li>\n            <li>Health Upgrade</li>\n            <li>Armor Upgrade</li>\n        </ul>\n        <h3>Bullet Upgrades</h3>\n        <ul>\n            <li>Stronger Bullets</li>\n            <li>Spread Shot</li>\n            <li>Explosive Bullets</li>\n        </ul>\n        <button id="purchase-btn">Purchase</button>\n    </div>\n    <script src="game.js"></script>\n</body>\n</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Shooter Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <!-- Mobile Control Buttons -->
+    <div class="mobile-control">
+        <button id="leftButton" class="mobile-button">← LEFT</button>
+        <button id="shootButton" class="mobile-button">SHOOT</button>
+        <button id="rightButton" class="mobile-button">RIGHT →</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
