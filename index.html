@@ -2,22 +2,116 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asteroid Shooter Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Space Miners - Exploration Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container">
+    <div class="game-wrapper">
+        <!-- Main Game Canvas -->
         <canvas id="gameCanvas"></canvas>
-    </div>
-    
-    <!-- Mobile Control Buttons -->
-    <div class="mobile-control">
-        <button id="leftButton" class="mobile-button">← LEFT</button>
-        <button id="shootButton" class="mobile-button">SHOOT</button>
-        <button id="rightButton" class="mobile-button">RIGHT →</button>
+        
+        <!-- HUD Overlay -->
+        <div id="hud" class="hud">
+            <div class="hud-row">
+                <div class="hud-item">
+                    <span class="label">Depth:</span>
+                    <span id="depthDisplay" class="value">0m</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Fuel:</span>
+                    <span id="fuelDisplay" class="value">100%</span>
+                </div>
+            </div>
+            <div class="hud-row">
+                <div class="hud-item">
+                    <span class="label">Credits:</span>
+                    <span id="creditsDisplay" class="value">$0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">Ore:</span>
+                    <span id="oreDisplay" class="value">0/10</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resource Inventory -->
+        <div id="inventory" class="inventory">
+            <div class="inventory-title">Inventory</div>
+            <div id="inventoryList" class="inventory-list"></div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="mobile-controls">
+            <div class="joystick-area" id="joystickArea">
+                <div class="joystick-bg">
+                    <div class="joystick-thumb" id="joystickThumb"></div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="mineButton" class="action-button mine-btn" title="Mine">
+                    <span class="button-icon">⛏</span>
+                    <span class="button-label">Mine</span>
+                </button>
+                <button id="upButton" class="action-button up-btn" title="Move Up">
+                    <span class="button-icon">▲</span>
+                </button>
+                <button id="downButton" class="action-button down-btn" title="Move Down">
+                    <span class="button-icon">▼</span>
+                </button>
+                <button id="refuelButton" class="action-button refuel-btn" title="Refuel">
+                    <span class="button-icon">⚡</span>
+                    <span class="button-label">Refuel</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menu -->
+        <div id="mainMenu" class="menu menu-active">
+            <div class="menu-content">
+                <h1 class="menu-title">SPACE MINERS</h1>
+                <p class="menu-subtitle">Explore • Mine • Upgrade</p>
+                
+                <button id="startButton" class="menu-button">START GAME</button>
+                <button id="upgradesButton" class="menu-button">UPGRADES</button>
+                <button id="statsButton" class="menu-button">STATS</button>
+            </div>
+        </div>
+
+        <!-- Upgrades Menu -->
+        <div id="upgradesMenu" class="menu">
+            <div class="menu-content">
+                <h2 class="menu-title">UPGRADES</h2>
+                <div id="upgradesList" class="upgrades-list"></div>
+                <button id="closeUpgradesButton" class="menu-button">BACK</button>
+            </div>
+        </div>
+
+        <!-- Stats Menu -->
+        <div id="statsMenu" class="menu">
+            <div class="menu-content">
+                <h2 class="menu-title">STATISTICS</h2>
+                <div id="statsList" class="stats-list"></div>
+                <button id="closeStatsButton" class="menu-button">BACK</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="menu">
+            <div class="menu-content">
+                <h2 class="menu-title">MISSION FAILED</h2>
+                <p id="gameOverMessage" class="menu-subtitle"></p>
+                <button id="restartButton" class="menu-button">RESTART</button>
+                <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
+            </div>
+        </div>
     </div>
 
+    <script src="terrain.js"></script>
+    <script src="player.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
